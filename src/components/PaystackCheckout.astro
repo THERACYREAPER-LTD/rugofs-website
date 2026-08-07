@@ -1,0 +1,226 @@
+---
+import { PAYSTACK_PUBLIC_KEY, TEST_CHECKOUT_AMOUNT_NGN, IS_TEST_PRICING } from "../data/payment";
+import { whatsappLink } from "../data/siteSettings";
+
+interface Props {
+  productName: string;
+  productSlug: string;
+  packSize: string;
+  priceNGN: number | null; // real price if set, otherwise falls back to the test amount
+}
+
+const { productName, productSlug, packSize, priceNGN } = Astro.props;
+const usingTestAmount = priceNGN == null;
+const chargeAmountNGN = priceNGN ?? TEST_CHECKOUT_AMOUNT_NGN;
+
+const whatsappFallback = whatsappLink(
+  `Hi Rugofs Foods, I'd like to order ${productName} (${packSize}).`
+);
+---
+
+<div
+  class="checkout-block"
+  data-product-name={productName}
+  data-product-slug={productSlug}
+  data-pack-size={packSize}
+  data-amount-ngn={chargeAmountNGN}
+  data-public-key={PAYSTACK_PUBLIC_KEY}
+>
+  {usingTestAmount && IS_TEST_PRICING && (
+    <p class="test-flag">
+      TEST MODE — this charges a placeholder ₦{TEST_CHECKOUT_AMOUNT_NGN}, not the real product
+      price (pricing isn't finalized yet).
+    </p>
+  )}
+
+  <form class="checkout-form">
+    <label>
+      Full Name
+      <input type="text" name="name" required autocomplete="name" />
+    </label>
+    <label>
+      Email <span class="req-note">(required by Paystack for your receipt)</span>
+      <input type="email" name="email" required autocomplete="email" />
+    </label>
+    <label>
+      Phone / WhatsApp Number
+      <input type="tel" name="phone" required autocomplete="tel" />
+    </label>
+
+    <button type="submit" class="btn btn-primary pay-btn">
+      Order Now — ₦{chargeAmountNGN.toLocaleString()}
+    </button>
+
+    <p class="checkout-error" hidden></p>
+  </form>
+
+  <a
+    href={whatsappFallback}
+    class="btn btn-whatsapp whatsapp-fallback"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    Or Order via WhatsApp Instead
+  </a>
+
+  <p class="checkout-policy-note">
+    By ordering, you agree to our <a href="/policies#delivery">delivery</a> and
+    <a href="/policies#refunds">refund</a> policies.
+  </p>
+</div>
+
+<script src="https://js.paystack.co/v1/inline.js"></script>
+<script>
+  // Paystack Inline JS integration. The public key is safe client-side by
+  // design — it can only open the payment popup, not move money on its
+  // own. Real verification happens server-side in
+  // src/pages/api/verify-payment.ts, using the secret key, which never
+  // reaches this file or the browser.
+  //
+  // Note: exact PaystackPop.setup() option names/behavior should be
+  // re-checked against Paystack's current Inline JS documentation before
+  // go-live — this is built from the commonly documented v1 API shape but
+  // Paystack's interfaces can change between doc revisions.
+
+  document.querySelectorAll<HTMLElement>(".checkout-block").forEach((block) => {
+    const form = block.querySelector<HTMLFormElement>(".checkout-form");
+    const errorEl = block.querySelector<HTMLParagraphElement>(".checkout-error");
+    if (!form) return;
+
+    const productName = block.dataset.productName ?? "";
+    const productSlug = block.dataset.productSlug ?? "";
+    const packSize = block.dataset.packSize ?? "";
+    const amountNGN = Number(block.dataset.amountNgn ?? "0");
+    const publicKey = block.dataset.publicKey ?? "";
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (errorEl) errorEl.hidden = true;
+
+      if (!publicKey) {
+        if (errorEl) {
+          errorEl.textContent =
+            "Payment isn't configured yet — the Paystack public key is missing. Please use WhatsApp to order instead.";
+          errorEl.hidden = false;
+        }
+        return;
+      }
+
+      const data = new FormData(form);
+      const email = String(data.get("email") || "");
+      const name = String(data.get("name") || "");
+      const phone = String(data.get("phone") || "");
+      const reference = `rugofs_${productSlug}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+
+      // @ts-ignore — PaystackPop is loaded globally by the inline.js script above
+      const handler = window.PaystackPop.setup({
+        key: publicKey,
+        email,
+        amount: Math.round(amountNGN * 100), // Paystack expects kobo
+        currency: "NGN",
+        ref: reference,
+        metadata: {
+          custom_fields: [
+            { display_name: "Customer Name", variable_name: "customer_name", value: name },
+            { display_name: "Phone", variable_name: "phone", value: phone },
+            { display_name: "Product", variable_name: "product", value: productName },
+            { display_name: "Pack Size", variable_name: "pack_size", value: packSize },
+          ],
+        },
+        callback: function (response: { reference: string }) {
+          const params = new URLSearchParams({
+            reference: response.reference,
+            product: productName,
+            size: packSize,
+          });
+          window.location.href = `/order-confirmed?${params.toString()}`;
+        },
+        onClose: function () {
+          // Customer closed the popup without paying — no action needed,
+          // they stay on the product page and can try again.
+        },
+      });
+      handler.openIframe();
+    });
+  });
+</script>
+
+<style>
+  .checkout-block {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .test-flag {
+    background: #FBF3E4;
+    border: 1px solid var(--color-gold);
+    border-radius: var(--radius);
+    padding: 0.6rem 0.9rem;
+    font-size: 0.82rem;
+    color: var(--color-brown);
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+
+  .checkout-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .checkout-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--color-brown);
+  }
+
+  .req-note {
+    font-weight: 400;
+    color: var(--color-text-muted);
+    font-size: 0.78rem;
+  }
+
+  .checkout-form input {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    padding: 0.65em 0.8em;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-weight: 400;
+    color: var(--color-text);
+  }
+
+  .pay-btn {
+    margin-top: 0.25rem;
+  }
+
+  .checkout-error {
+    color: #A33A3A;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .whatsapp-fallback {
+    width: 100%;
+    text-align: center;
+    margin-top: 0.75rem;
+  }
+
+  .checkout-policy-note {
+    margin-top: 0.85rem;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    text-align: center;
+  }
+
+  .checkout-policy-note a {
+    color: var(--color-plum);
+    font-weight: 600;
+  }
+</style>

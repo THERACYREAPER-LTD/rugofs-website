@@ -1,0 +1,150 @@
+---
+export const prerender = true;
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { siteSettings, whatsappLink } from "../data/siteSettings";
+---
+
+<BaseLayout
+  title="Policies"
+  description="Rugofs Foods delivery, refund, privacy, and terms of service policies."
+>
+  <section class="section">
+    <div class="container narrow">
+      <div class="section-head">
+        <p class="eyebrow">Ordering With Confidence</p>
+        <h1>Policies</h1>
+      </div>
+
+      <div class="open-note">
+        These policies reflect how Rugofs Foods currently operates. This
+        page is a working draft prepared for founder review — it is not
+        legal advice, and hasn't yet been reviewed by a lawyer. As the
+        business grows (delivery partners, order tracking, formal
+        incorporation), these policies will be updated to match. If
+        anything here doesn't match how you actually want to run things,
+        let us know and we'll correct it.
+      </div>
+
+      <hr class="divider" />
+
+      <h2 id="delivery">Delivery Policy</h2>
+      <p>
+        <strong>In-store pickup</strong> has no delivery fee. Message us on
+        WhatsApp to confirm pickup details for your order.
+      </p>
+      <p>
+        <strong>Delivery</strong> is currently arranged directly with our
+        team rather than calculated automatically at checkout — our online
+        payment system doesn't yet include a live delivery-fee calculator
+        or courier integration. After you order, message us on WhatsApp
+        with your delivery address and we'll confirm the delivery fee and
+        expected timing for your location within Port Harcourt before
+        anything is dispatched. We are not certain of exact delivery
+        timeframes outside Port Harcourt at this time — please ask us
+        directly if you're ordering from further away.
+      </p>
+      <p>
+        We do not yet have order tracking. Once your order is confirmed and
+        paid for, we'll coordinate delivery or pickup with you by phone or
+        WhatsApp.
+      </p>
+
+      <h2 id="refunds">Refund &amp; Returns Policy</h2>
+      <p>
+        Because Rugofs products are food items, we're unable to accept
+        returns of any pack that has already been opened.
+      </p>
+      <p>
+        If your order arrives <strong>damaged, incorrect, or defective</strong>,
+        please contact us on WhatsApp within 48 hours of receiving it, with
+        a photo of the product and your order/payment reference. We'll work
+        with you on a replacement or refund once we've verified the issue.
+      </p>
+      <p>
+        If a payment is taken in error or a transaction fails after your
+        card or bank account was charged, message us with your payment
+        reference and we'll help resolve it directly with Paystack, our
+        payment processor.
+      </p>
+      <p class="policy-flag">
+        This refund window and process is a reasonable starting policy, not
+        one Rugofs has formally adopted yet — please confirm or adjust it so
+        it matches what you actually intend to offer customers.
+      </p>
+
+      <h2 id="privacy">Privacy Policy</h2>
+      <p>
+        When you place an order or send us a message, we collect the
+        information you provide — name, email address, phone number, and
+        (for orders) delivery details — solely to process your order or
+        respond to your enquiry. We do not sell or share your information
+        with third parties for marketing purposes.
+      </p>
+      <p>
+        Card and bank payment details are handled directly by{" "}
+        <a href="https://paystack.com" target="_blank" rel="noopener noreferrer">
+          Paystack
+        </a>
+        , our payment processor — Rugofs Foods does not see or store your
+        full card number or bank credentials. Paystack's own privacy and
+        security practices govern how that payment data is handled; we
+        recommend reviewing Paystack's policies directly if you'd like more
+        detail before paying.
+      </p>
+      <p>
+        Contact form submissions are processed via Netlify Forms. We use
+        the details you submit only to reply to you.
+      </p>
+
+      <h2 id="terms">Terms of Service</h2>
+      <p>
+        By placing an order or using this website, you agree to the
+        policies on this page. Product availability, pack sizes, and prices
+        shown are current as of your visit but may change without notice —
+        for example, our online checkout is currently running in{" "}
+        <strong>Paystack test mode</strong> while our live payment account
+        is under compliance review, so amounts charged online may not yet
+        reflect real product prices (this is disclosed on the checkout
+        itself as well).
+      </p>
+      <p>
+        All products sold are NAFDAC-registered where stated on the product
+        page. Rugofs Foods is a Nigerian business based in Port Harcourt,
+        Rivers State, and these terms are intended to be read under Nigerian
+        law — though, as noted above, this page has not yet had formal legal
+        review.
+      </p>
+
+      <hr class="divider" />
+
+      <p class="policy-contact">
+        Questions about any of these policies? Message us on{" "}
+        <a
+          href={whatsappLink("Hi Rugofs Foods, I have a question about your policies.")}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          WhatsApp
+        </a>{" "}
+        or email{" "}
+        <a href={`mailto:${siteSettings.email}`}>{siteSettings.email}</a>.
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .narrow {
+    max-width: 720px;
+  }
+
+  .policy-flag {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .policy-contact {
+    color: var(--color-text-muted);
+  }
+</style>

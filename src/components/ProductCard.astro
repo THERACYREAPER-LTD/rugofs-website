@@ -1,0 +1,61 @@
+---
+import type { Product } from "../data/products";
+
+interface Props {
+  product: Product;
+}
+
+const { product } = Astro.props;
+const approvedSizes = product.packSizes.filter((p) => p.nafdacApproved);
+const sizeLabel = approvedSizes.map((s) => s.size).join(", ");
+---
+
+<a href={`/products/${product.slug}`} class="card product-card">
+  {product.images.length > 0 ? (
+    <img src={product.images[0]} alt={product.name} class="product-photo" />
+  ) : (
+    <div class="placeholder-photo">Product photo coming soon</div>
+  )}
+  <div class="card-body">
+    {product.isBestseller && <span class="badge">Best Seller</span>}
+    <h3 class="product-name">{product.name}</h3>
+    <p class="product-desc">{product.shortDescription}</p>
+    <p class="product-size">{sizeLabel}</p>
+  </div>
+</a>
+
+<style>
+  .product-card {
+    color: var(--color-text);
+  }
+
+  .product-card:hover {
+    text-decoration: none;
+    border-color: var(--color-gold);
+  }
+
+  .product-photo {
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  .product-name {
+    font-size: 1.1rem;
+    margin-bottom: 0;
+  }
+
+  .product-desc {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    margin-bottom: 0;
+  }
+
+  .product-size {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: var(--color-brown);
+    margin-bottom: 0;
+  }
+</style>

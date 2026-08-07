@@ -1,0 +1,221 @@
+/* Rugofs Foods — Design Tokens
+   Source: 04 Visual Identity/Color Palette & Typography.md
+   Colors are confirmed brand colors. Headline/body typeface choice (Montserrat/Lato)
+   is a working default per the Website Build Spec — flagged there for founder/brand
+   review, not yet declared final. */
+
+:root {
+  --color-plum: #5B3A58;      /* Harvest Plum */
+  --color-gold: #C89B3C;      /* Harvest Gold */
+  --color-brown: #5A3E2B;     /* Earth Brown */
+  --color-green: #8BAE3F;     /* Leaf Green */
+  --color-cream: #F5EFE3;     /* Warm Cream */
+
+  --color-text: #2B2320;
+  --color-text-muted: #6B5D4F;
+  --color-bg: #FFFFFF;
+  --color-bg-alt: var(--color-cream);
+  --color-border: #E4D9C8;
+
+  --font-heading: 'Montserrat', system-ui, sans-serif;
+  --font-body: 'Lato', system-ui, sans-serif;
+
+  --radius: 8px;
+  --max-width: 1120px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-heading);
+  color: var(--color-plum);
+  line-height: 1.2;
+  margin: 0 0 0.5em;
+}
+
+h1 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; }
+h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); font-weight: 600; }
+h3 { font-size: 1.3rem; font-weight: 600; }
+
+p {
+  margin: 0 0 1em;
+}
+
+a {
+  color: var(--color-plum);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.section {
+  padding: 3.5rem 0;
+}
+
+.section--alt {
+  background: var(--color-bg-alt);
+}
+
+.btn {
+  display: inline-block;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.85em 1.8em;
+  border-radius: var(--radius);
+  border: 2px solid transparent;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.btn:hover {
+  text-decoration: none;
+  opacity: 0.94;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px -8px rgba(91, 58, 88, 0.35);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background: var(--color-plum);
+  color: var(--color-cream);
+}
+
+.btn-secondary {
+  background: var(--color-green);
+  color: #1E2A0E;
+}
+
+.btn-whatsapp {
+  background: #25D366;
+  color: #06210F;
+}
+
+.btn-outline {
+  background: transparent;
+  border-color: var(--color-plum);
+  color: var(--color-plum);
+}
+
+.badge {
+  display: inline-block;
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--color-gold);
+  color: #3A2A05;
+  padding: 0.3em 0.75em;
+  border-radius: 999px;
+}
+
+.eyebrow {
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+.section-head {
+  margin-bottom: 1.75rem;
+}
+
+.section-head h2 {
+  margin-top: 0.25rem;
+}
+
+.grid {
+  display: grid;
+  gap: 1.75rem;
+}
+
+.grid-cards {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.card:hover {
+  box-shadow: 0 16px 32px -18px rgba(91, 58, 88, 0.35);
+  transform: translateY(-3px);
+}
+
+.card-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1;
+}
+
+.placeholder-photo {
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(135deg, var(--color-cream), #EFE2C8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-brown);
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 2.5rem 0;
+}
+
+.open-note {
+  background: #FBF3E4;
+  border: 1px solid var(--color-gold);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  font-size: 0.92rem;
+  color: var(--color-brown);
+}

@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Sanity connection (Phase 1, once the Sanity project exists):
+# SANITY_PROJECT_ID, SANITY_DATASET, SANITY_API_TOKEN
+# Set these in Netlify's Site settings → Environment variables, not here.

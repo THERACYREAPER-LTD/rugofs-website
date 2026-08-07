@@ -1,0 +1,280 @@
+---
+export const prerender = true;
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ProductCard from "../components/ProductCard.astro";
+import { siteSettings, whatsappLink } from "../data/siteSettings";
+import { getLiveProducts, getBestseller } from "../data/products";
+
+const products = getLiveProducts();
+const bestseller = getBestseller();
+
+const drive = [
+  "Premium Quality",
+  "Innovation",
+  "Integrity",
+  "Self-Reliance",
+  "Excellence",
+  "Availability",
+  "Continuous Improvement",
+  "Customer Confidence",
+  "Agricultural Value Addition",
+];
+---
+
+<BaseLayout title="Home">
+  <section class="hero">
+    <div class="container hero-inner">
+      <div class="hero-copy">
+        <p class="eyebrow">NAFDAC-Registered · Port Harcourt, Nigeria</p>
+        <h1>Transforming Nigerian Harvests Into Premium Staples.</h1>
+        <p class="hero-sub">Preserving Goodness, Elevating Taste.</p>
+        <p class="hero-intro">
+          Rugofs Foods hygienically processes and packages NAFDAC-registered
+          staples rooted in Nigerian harvests. From cocoyam to beans, every
+          pack is made to bring nourishment, confidence, and value to your
+          table.
+        </p>
+        <div class="hero-ctas">
+          <a href="/products" class="btn btn-primary">Shop Our Products</a>
+          <a
+            href={whatsappLink("Hi Rugofs Foods, I'd like to place an order.")}
+            class="btn btn-whatsapp"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Order via WhatsApp
+          </a>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <div class="hero-visual-inner">
+          <span class="hero-visual-icon">🌾</span>
+          <p class="hero-visual-label">Now Processing</p>
+          <ul class="hero-visual-list">
+            <li>Cocoyam Flour</li>
+            <li>Beans Flour</li>
+          </ul>
+          <span class="badge">NAFDAC-Registered</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section brand-promise">
+    <div class="container">
+      <p>{siteSettings.brandPromise}</p>
+    </div>
+  </section>
+
+  {bestseller && (
+    <section class="section">
+      <div class="container bestseller">
+        <div>
+          <span class="badge">Best Seller</span>
+          <h2>{bestseller.name}</h2>
+          <p>
+            A Port Harcourt kitchen staple, NAFDAC-registered and ready to
+            elevate your soup.
+          </p>
+          <a href={`/products/${bestseller.slug}`} class="btn btn-outline">View Product</a>
+        </div>
+        <div class="placeholder-photo bestseller-photo">Product photo coming soon</div>
+      </div>
+    </section>
+  )}
+
+  <section class="section section--alt">
+    <div class="container">
+      <div class="section-head">
+        <p class="eyebrow">What Moves Us</p>
+        <h2>Our Drive</h2>
+      </div>
+      <ul class="drive-list">
+        {drive.map((item) => (
+          <li>{item}</li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <p class="eyebrow">The Range</p>
+        <h2>Featured Products</h2>
+      </div>
+      <div class="grid grid-cards">
+        {products.map((product) => (
+          <ProductCard product={product} />
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero {
+    background: linear-gradient(180deg, var(--color-cream) 0%, #fff 100%);
+    padding: 5rem 0 4rem;
+    overflow: hidden;
+  }
+
+  .hero-inner {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 3rem;
+    align-items: center;
+  }
+
+  @media (max-width: 860px) {
+    .hero-inner {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .hero-sub {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    color: var(--color-brown);
+    font-size: 1.15rem;
+  }
+
+  .hero-intro {
+    color: var(--color-text-muted);
+    font-size: 1.02rem;
+    max-width: 52ch;
+  }
+
+  .hero-ctas {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+  }
+
+  .hero-visual {
+    display: flex;
+    justify-content: center;
+  }
+
+  .hero-visual-inner {
+    position: relative;
+    width: 100%;
+    max-width: 320px;
+    aspect-ratio: 4 / 5;
+    border-radius: 20px;
+    background:
+      radial-gradient(circle at 18% 20%, rgba(200, 155, 60, 0.35) 0, transparent 45%),
+      radial-gradient(circle at 82% 78%, rgba(139, 174, 63, 0.3) 0, transparent 45%),
+      var(--color-plum);
+    background-size: cover;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    padding: 1.75rem;
+    box-shadow: 0 24px 48px -20px rgba(91, 58, 88, 0.45);
+  }
+
+  .hero-visual-inner::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    background-image: radial-gradient(rgba(245, 239, 227, 0.16) 1.5px, transparent 1.5px);
+    background-size: 18px 18px;
+  }
+
+  .hero-visual-icon {
+    font-size: 2.4rem;
+    line-height: 1;
+    position: relative;
+  }
+
+  .hero-visual-label {
+    position: relative;
+    margin: 0;
+    color: var(--color-gold);
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .hero-visual-list {
+    position: relative;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .hero-visual-list li {
+    color: var(--color-cream);
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 1.15rem;
+  }
+
+  .hero-visual-inner .badge {
+    position: relative;
+    margin-top: 0.4rem;
+  }
+
+  .brand-promise {
+    background: var(--color-plum);
+    color: var(--color-cream);
+    text-align: center;
+  }
+
+  .brand-promise p {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 1.3rem;
+    margin: 0;
+  }
+
+  .bestseller {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    align-items: center;
+  }
+
+  @media (max-width: 720px) {
+    .bestseller {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .bestseller-photo {
+    aspect-ratio: 4 / 3;
+    border-radius: var(--radius);
+  }
+
+  .drive-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    color: var(--color-brown);
+  }
+
+  .drive-list li::before {
+    content: "· ";
+    color: var(--color-gold);
+  }
+
+  .drive-list li:first-child::before {
+    content: "";
+  }
+</style>

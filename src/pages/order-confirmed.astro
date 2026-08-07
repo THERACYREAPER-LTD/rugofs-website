@@ -1,0 +1,136 @@
+---
+export const prerender = false; // must run server-side — this is where the Paystack secret key is used
+
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { whatsappLink } from "../data/siteSettings";
+
+// SECURITY: PAYSTACK_SECRET_KEY has no PUBLIC_ prefix, so Astro keeps it
+// server-only — it is never included in any client-side JS bundle. This
+// code only runs on Netlify's server at request time.
+const secretKey = import.meta.env.PAYSTACK_SECRET_KEY;
+
+const reference = Astro.url.searchParams.get("reference");
+const productName = Astro.url.searchParams.get("product") ?? "your order";
+const packSize = Astro.url.searchParams.get("size") ?? "";
+
+type VerifyResult =
+  | { state: "no-reference" }
+  | { state: "not-configured" }
+  | { state: "error"; message: string }
+  | { state: "failed"; message: string }
+  | { state: "success"; amountNGN: number; paidAt: string; customerEmail: string };
+
+async function verify(ref: string, key: string): Promise<VerifyResult> {
+  try {
+    // Paystack transaction verify endpoint. Confirm the exact path/response
+    // shape against Paystack's current API docs before go-live — this is
+    // built from the commonly documented shape, not guaranteed unchanged.
+    const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(ref)}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    const json = await res.json();
+
+    if (!res.ok || !json?.status) {
+      return { state: "error", message: json?.message ?? "Could not verify this transaction." };
+    }
+
+    const data = json.data;
+    if (data?.status !== "success") {
+      return { state: "failed", message: data?.gateway_response ?? "Payment was not successful." };
+    }
+
+    return {
+      state: "success",
+      amountNGN: (data.amount ?? 0) / 100,
+      paidAt: data.paid_at ?? "",
+      customerEmail: data.customer?.email ?? "",
+    };
+  } catch (err) {
+    return { state: "error", message: "Could not reach Paystack to verify this payment." };
+  }
+}
+
+let result: VerifyResult;
+if (!secretKey) {
+  result = { state: "not-configured" };
+} else if (!reference) {
+  result = { state: "no-reference" };
+} else {
+  result = await verify(reference, secretKey);
+}
+
+const notifyWhatsapp = whatsappLink(
+  `Hi Rugofs Foods, I just paid for ${productName} (${packSize}). Reference: ${reference ?? ""}`
+);
+---
+
+<BaseLayout title="Order Confirmation">
+  <section class="section">
+    <div class="container confirm-box">
+      {result.state === "success" && (
+        <>
+          <h1>Payment Confirmed</h1>
+          <p>
+            Thank you — your payment of <strong>₦{result.amountNGN.toLocaleString()}</strong> for{" "}
+            <strong>{productName}{packSize ? ` (${packSize})` : ""}</strong> was verified successfully.
+          </p>
+          <p class="ref-line">Reference: <code>{reference}</code></p>
+          <div class="open-note">
+            There's no order-tracking system connected yet (that's a later
+            build step), so please confirm your order details and delivery
+            address directly with Rugofs Foods on WhatsApp — tap below.
+          </div>
+          <a href={notifyWhatsapp} class="btn btn-whatsapp" target="_blank" rel="noopener noreferrer">
+            Send Order Details on WhatsApp
+          </a>
+        </>
+      )}
+
+      {result.state === "failed" && (
+        <>
+          <h1>Payment Not Completed</h1>
+          <p>{result.message}</p>
+          <a href="/products" class="btn btn-outline">Back to Shop</a>
+        </>
+      )}
+
+      {(result.state === "error" || result.state === "no-reference" || result.state === "not-configured") && (
+        <>
+          <h1>We Couldn't Confirm This Payment</h1>
+          <p>
+            {result.state === "not-configured"
+              ? "Payment verification isn't configured on this deployment yet (missing Paystack secret key)."
+              : result.state === "no-reference"
+              ? "No payment reference was provided."
+              : result.message}
+          </p>
+          <p>
+            If you did complete a payment, please don't worry — message us on
+            WhatsApp with your payment reference and we'll confirm it manually.
+          </p>
+          <a href={notifyWhatsapp} class="btn btn-whatsapp" target="_blank" rel="noopener noreferrer">
+            Message Us on WhatsApp
+          </a>
+        </>
+      )}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .confirm-box {
+    max-width: 640px;
+    text-align: center;
+    padding: 2rem 0;
+  }
+
+  .ref-line {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+  }
+
+  .confirm-box .open-note {
+    text-align: left;
+    margin: 1.5rem 0;
+  }
+</style>

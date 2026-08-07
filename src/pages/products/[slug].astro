@@ -1,0 +1,167 @@
+---
+export const prerender = true;
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { products, getProductBySlug } from "../../data/products";
+import PaystackCheckout from "../../components/PaystackCheckout.astro";
+import { TEST_CHECKOUT_AMOUNT_NGN, IS_TEST_PRICING } from "../../data/payment";
+
+export function getStaticPaths() {
+  return products
+    .filter((p) => p.status === "live")
+    .map((p) => ({ params: { slug: p.slug } }));
+}
+
+const { slug } = Astro.params;
+const product = getProductBySlug(slug as string);
+
+if (!product) {
+  return Astro.redirect("/products");
+}
+
+const approvedSizes = product.packSizes.filter((p) => p.nafdacApproved);
+---
+
+<BaseLayout title={product.name} description={product.shortDescription}>
+  <section class="section">
+    <div class="container product-detail">
+      <div>
+        {product.images.length > 0 ? (
+          <img src={product.images[0]} alt={product.name} class="detail-photo" />
+        ) : (
+          <div class="placeholder-photo detail-photo">Product photo coming soon</div>
+        )}
+      </div>
+
+      <div>
+        {product.isBestseller && <span class="badge">Best Seller</span>}
+        <h1>{product.name}</h1>
+        <p class="detail-desc">{product.longDescription}</p>
+
+        <dl class="spec-list">
+          <div>
+            <dt>Active ingredient</dt>
+            <dd>{product.activeIngredient}</dd>
+          </div>
+          <div>
+            <dt>NAFDAC registration</dt>
+            <dd>{product.nafdacRegNo}</dd>
+          </div>
+          <div>
+            <dt>Available pack size</dt>
+            <dd>{approvedSizes.map((s) => s.size).join(", ")}</dd>
+          </div>
+        </dl>
+
+        <div class="price-block">
+          {approvedSizes.map((size) => (
+            <div class="price-row">
+              <span class="price-size">{size.size}</span>
+              <span class="price-value">
+                {size.priceNGN != null
+                  ? `₦${size.priceNGN.toLocaleString()}`
+                  : IS_TEST_PRICING
+                  ? `Test checkout: ₦${TEST_CHECKOUT_AMOUNT_NGN.toLocaleString()} (real price not set yet)`
+                  : "Message us on WhatsApp for current pricing"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Only one NAFDAC-approved pack size exists per product today, so
+            this checks out against approvedSizes[0] directly. If a second
+            approved size is ever added, this needs a size selector before
+            checkout instead of assuming the first one. */}
+        {approvedSizes[0] && (
+          <PaystackCheckout
+            productName={product.name}
+            productSlug={product.slug}
+            packSize={approvedSizes[0].size}
+            priceNGN={approvedSizes[0].priceNGN}
+          />
+        )}
+
+        {(!product.preparationGuide || !product.nutritionInfo) && (
+          <div class="open-note" style="margin-top: 1.5rem;">
+            Preparation guide and nutrition information for this product
+            haven't been provided yet — they'll be added here once available,
+            rather than guessed at.
+          </div>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .product-detail {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  @media (max-width: 720px) {
+    .product-detail {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .detail-photo {
+    border-radius: var(--radius);
+    width: 100%;
+  }
+
+  .detail-desc {
+    color: var(--color-text-muted);
+    font-size: 1.02rem;
+  }
+
+  .spec-list {
+    margin: 1.5rem 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .spec-list dt {
+    font-family: var(--font-heading);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+  }
+
+  .spec-list dd {
+    margin: 0;
+    font-weight: 600;
+    color: var(--color-brown);
+  }
+
+  .price-block {
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+    padding: 1rem 0;
+    margin-bottom: 1.5rem;
+  }
+
+  .price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-heading);
+    font-weight: 600;
+  }
+
+  .price-size {
+    color: var(--color-plum);
+  }
+
+  .price-value {
+    color: var(--color-brown);
+    font-size: 0.95rem;
+  }
+
+  .order-btn {
+    width: 100%;
+    text-align: center;
+  }
+</style>

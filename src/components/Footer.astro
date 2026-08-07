@@ -1,0 +1,100 @@
+---
+import { siteSettings } from "../data/siteSettings";
+---
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div>
+      <div class="footer-brand">RUGOFS FOODS</div>
+      <p class="footer-tagline">{siteSettings.tagline}</p>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <p>{siteSettings.address}</p>
+      <p><a href={`mailto:${siteSettings.email}`}>{siteSettings.email}</a></p>
+      <p><a href={`tel:${siteSettings.phone.replace(/\s/g, "")}`}>{siteSettings.phone}</a></p>
+    </div>
+    <div class="footer-col">
+      <h4>Shop</h4>
+      <p><a href="/products">All Products</a></p>
+      <p><a href="/about">Our Story</a></p>
+      <p><a href="/contact">Contact Us</a></p>
+    </div>
+    <div class="footer-col">
+      <h4>Policies</h4>
+      <p><a href="/policies#delivery">Delivery</a></p>
+      <p><a href="/policies#refunds">Refunds &amp; Returns</a></p>
+      <p><a href="/policies#privacy">Privacy</a></p>
+      <p><a href="/policies#terms">Terms of Service</a></p>
+    </div>
+  </div>
+  <div class="container footer-bottom">
+    <p>&copy; {new Date().getFullYear()} Rugofs Foods. NAFDAC-registered. All rights reserved.</p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background: var(--color-plum);
+    color: var(--color-cream);
+    margin-top: 4rem;
+  }
+
+  .footer-inner {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr 1fr;
+    gap: 2rem;
+    padding: 3rem 1.5rem 2rem;
+  }
+
+  @media (max-width: 780px) {
+    .footer-inner {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .footer-inner {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .footer-brand {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.5rem;
+  }
+
+  .footer-tagline {
+    color: #E3D4E1;
+    font-size: 0.9rem;
+    max-width: 32ch;
+  }
+
+  .footer-col h4 {
+    font-family: var(--font-heading);
+    color: var(--color-gold);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.75rem;
+  }
+
+  .footer-col p {
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .footer-col a {
+    color: var(--color-cream);
+  }
+
+  .footer-bottom {
+    border-top: 1px solid rgba(245, 239, 227, 0.15);
+    padding: 1rem 1.5rem;
+    font-size: 0.8rem;
+    color: #C9B9C7;
+  }
+</style>

@@ -1,0 +1,147 @@
+---
+export const prerender = true;
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { siteSettings, whatsappLink } from "../data/siteSettings";
+---
+
+<BaseLayout title="Contact" description="Get in touch with Rugofs Foods.">
+  <section class="section">
+    <div class="container contact-grid">
+      <div>
+        <h1>Contact Us</h1>
+        <p>
+          Have a question, or want to place an order? Reach us on WhatsApp,
+          or find us at our address below.
+        </p>
+
+        <div class="contact-details">
+          <a
+            href={whatsappLink("Hi Rugofs Foods, I have a question.")}
+            class="btn btn-whatsapp"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Message on WhatsApp
+          </a>
+
+          <div class="detail-row">
+            <span class="eyebrow">Address</span>
+            <p>{siteSettings.address}</p>
+          </div>
+          <div class="detail-row">
+            <span class="eyebrow">Email</span>
+            <p><a href={`mailto:${siteSettings.email}`}>{siteSettings.email}</a></p>
+          </div>
+          <div class="detail-row">
+            <span class="eyebrow">Phone</span>
+            <p>{siteSettings.phone}</p>
+          </div>
+
+          {!siteSettings.googleBusinessProfileUrl && (
+            <div class="open-note">
+              Google Business Profile link not yet provided — will be added
+              here once shared.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h2>Send a Message</h2>
+        <form
+          name="contact"
+          method="POST"
+          data-netlify="true"
+          netlify-honeypot="bot-field"
+          action="/thank-you"
+          class="contact-form"
+        >
+          <input type="hidden" name="form-name" value="contact" />
+          <p class="hidden-field">
+            <label>Don't fill this out if you're human: <input name="bot-field" /></label>
+          </p>
+
+          <label>
+            Name
+            <input type="text" name="name" required />
+          </label>
+
+          <label>
+            Phone / WhatsApp Number
+            <input type="tel" name="phone" required />
+          </label>
+
+          <label>
+            Message
+            <textarea name="message" rows="5" required></textarea>
+          </label>
+
+          <button type="submit" class="btn btn-primary">Send Message</button>
+        </form>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+  }
+
+  @media (max-width: 720px) {
+    .contact-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .contact-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+    align-items: flex-start;
+  }
+
+  .detail-row p {
+    margin: 0.15rem 0 0;
+  }
+
+  .hidden-field {
+    position: absolute;
+    left: -9999px;
+  }
+
+  .contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .contact-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--color-brown);
+  }
+
+  .contact-form input,
+  .contact-form textarea {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    padding: 0.65em 0.8em;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-weight: 400;
+    color: var(--color-text);
+  }
+
+  .contact-form button {
+    align-self: flex-start;
+    margin-top: 0.5rem;
+  }
+</style>

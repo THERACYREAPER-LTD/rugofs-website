@@ -1,0 +1,43 @@
+---
+export const prerender = true;
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProductCard from "../../components/ProductCard.astro";
+import { getLiveProducts } from "../../data/products";
+
+const products = getLiveProducts();
+---
+
+<BaseLayout title="Shop" description="Browse Rugofs Foods' NAFDAC-registered staple products.">
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <p class="eyebrow">NAFDAC-Registered · Made in Port Harcourt</p>
+        <h1>Shop</h1>
+        <p class="shop-intro">
+          Every Rugofs product starts with real Nigerian harvest — cocoyam,
+          beans, and more — hygienically processed and NAFDAC-registered.
+          Browse what's available now.
+        </p>
+      </div>
+
+      <div class="grid grid-cards">
+        {products.map((product) => (
+          <ProductCard product={product} />
+        ))}
+      </div>
+
+      <div class="open-note" style="margin-top: 2.5rem;">
+        More products (dehydrated plants, spices, tea) are planned but not
+        yet confirmed as live — they'll appear here once that's confirmed.
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .shop-intro {
+    max-width: 60ch;
+    color: var(--color-text-muted);
+    margin-bottom: 2.5rem;
+  }
+</style>

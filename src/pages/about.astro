@@ -1,0 +1,92 @@
+---
+export const prerender = true;
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const drive = [
+  "Premium Quality",
+  "Innovation",
+  "Integrity",
+  "Self-Reliance",
+  "Excellence",
+  "Availability",
+  "Continuous Improvement",
+  "Customer Confidence",
+  "Agricultural Value Addition",
+];
+---
+
+<BaseLayout title="About" description="Rugofs Foods — Mission, Vision, and NAFDAC certification.">
+  <section class="section">
+    <div class="container narrow">
+      <div class="section-head">
+        <p class="eyebrow">NAFDAC-Registered · Port Harcourt, Nigeria</p>
+        <h1>About Rugofs Foods</h1>
+      </div>
+
+      <h2>Our Story</h2>
+      <div class="open-note">
+        This section is a placeholder. The founder's own account of Rugofs'
+        origin — including where the name comes from — hasn't been written
+        yet, and won't be invented to fill the space. Check back soon.
+      </div>
+
+      <hr class="divider" />
+
+      <h2>Mission</h2>
+      <p>
+        To transform locally sourced agricultural produce into
+        premium-quality food products through innovation, hygienic
+        processing and excellent packaging, delivering nourishment,
+        confidence and value to every customer.
+      </p>
+
+      <h2>Vision</h2>
+      <p>
+        To become Africa's most trusted food processing company,
+        transforming local agricultural harvests into globally respected
+        products that are the preferred choice of families, chefs and food
+        businesses.
+      </p>
+
+      <h2>Purpose &amp; Philosophy</h2>
+      <p>
+        God placed abundance in the earth. Through innovation, stewardship
+        and uncompromising standards, we transform that abundance into
+        products that nourish people, restore dignity and create
+        opportunity.
+      </p>
+
+      <h2>Our Drive</h2>
+      <ul class="drive-list">
+        {drive.map((item) => (
+          <li>{item}</li>
+        ))}
+      </ul>
+
+      <hr class="divider" />
+
+      <h2>NAFDAC Certification</h2>
+      <p>
+        Rugofs Foods products are registered with NAFDAC — Rugofs Beans
+        Flour (A8-121932L) and Rugofs Cocoyam Powder Soup Thickener
+        (A8-121931L) — so every pack meets national food safety standards.
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .narrow {
+    max-width: 720px;
+  }
+
+  .drive-list {
+    padding-left: 1.2rem;
+    color: var(--color-brown);
+    font-weight: 600;
+  }
+
+  .drive-list li {
+    margin-bottom: 0.35rem;
+  }
+</style>
