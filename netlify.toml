@@ -3,7 +3,7 @@
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
 
 # Sanity connection (Phase 1, once the Sanity project exists):
 # SANITY_PROJECT_ID, SANITY_DATASET, SANITY_API_TOKEN
