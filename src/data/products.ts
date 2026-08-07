@@ -1,17 +1,17 @@
-// Mirrors the `product` document type in the Sanity schema (Section 3 of the
-// Website Build Spec). Content is pulled verbatim from
-// 09 Marketing/Website Copy — Phase 1.md — nothing here invents pricing,
-// prep instructions, nutrition facts, or founder history.
+// Product content now lives in Sanity Studio: https://rugofs-foods.sanity.studio/
+// (log in with the same account this project's Sanity org was created
+// under). This file fetches it ONCE at build time via a top-level await,
+// then exposes the exact same shape every page/component already imports
+// (products, getLiveProducts, getBestseller, getProductBySlug) — so no
+// page or component needed to change when this swapped from hardcoded
+// data to a live CMS fetch. This is the swap the original comment here
+// predicted: "When Sanity is connected, replace this static object with a
+// GROQ fetch of the singleton."
 //
-// Launch scope (decided 2026-08-04): only NAFDAC-approved pack sizes are
-// marked nafdacApproved: true. Yam Poundo Flour is excluded entirely — no
-// NAFDAC certificate is on file for it yet, so it isn't published even as
-// "coming soon". Add it here, following the same pattern, once that's
-// confirmed (see 02 Governance & Compliance).
-//
-// No real product photography exists yet — `images` stays empty and the
-// frontend renders a clearly-labeled placeholder instead of a stock photo,
-// so nothing here misrepresents what the product actually looks like.
+// To change a product's name, description, price, or live/coming-soon
+// status: edit it in Sanity Studio and publish — the next Netlify build
+// picks it up. Don't edit product data in this file anymore.
+import { sanityClient, urlFor } from "../lib/sanity";
 
 export type PackSize = {
   size: string;
@@ -24,7 +24,7 @@ export type PackSize = {
 export type Product = {
   name: string;
   slug: string;
-  categorySlug: string;
+  categorySlug: string | null;
   shortDescription: string;
   longDescription: string;
   activeIngredient: string;
@@ -33,65 +33,86 @@ export type Product = {
   packSizes: PackSize[];
   isBestseller: boolean;
   status: "live" | "coming-soon";
-  nutritionInfo: string | null; // OPEN — not yet provided by founder
-  preparationGuide: string | null; // OPEN — not yet provided by founder
+  nutritionInfo: string | null;
+  preparationGuide: string | null;
   sortOrder: number;
 };
 
-export const products: Product[] = [
-  {
-    name: "Rugofs Cocoyam Powder Soup Thickener",
-    slug: "rugofs-cocoyam-powder-soup-thickener",
-    categorySlug: "flours",
-    shortDescription:
-      "Our best-seller. Premium cocoyam powder soup thickener, made from real cocoyam tuber.",
-    longDescription:
-      "Rugofs Cocoyam Powder Soup Thickener is made from real cocoyam tuber, hygienically processed and packaged in a food-grade nylon pouch. NAFDAC-registered (A8-121931L) and a customer favorite — the product Rugofs is best known for.",
-    activeIngredient: "Cocoyam Tuber",
-    nafdacRegNo: "A8-121931L",
-    images: [],
-    packSizes: [
-      {
-        size: "200g",
-        priceNGN: null,
-        sku: null,
-        inStock: true,
-        nafdacApproved: true,
-      },
-    ],
-    isBestseller: true,
-    status: "live",
-    nutritionInfo: null,
-    preparationGuide: null,
-    sortOrder: 1,
-  },
-  {
-    name: "Rugofs Beans Flour",
-    slug: "rugofs-beans-flour",
-    categorySlug: "flours",
-    shortDescription:
-      "Premium beans flour, made from black eye beans and hygienically packaged for freshness.",
-    longDescription:
-      "Rugofs Beans Flour is processed from black eye beans and packaged in a food-grade nylon pouch to lock in freshness and quality. NAFDAC-registered (A8-121932L), it's built for households, hotels, and restaurants who won't compromise on standards.",
-    activeIngredient: "Black Eye Beans",
-    nafdacRegNo: "A8-121932L",
-    images: [],
-    packSizes: [
-      {
-        size: "500g",
-        priceNGN: null,
-        sku: null,
-        inStock: true,
-        nafdacApproved: true,
-      },
-    ],
-    isBestseller: false,
-    status: "live",
-    nutritionInfo: null,
-    preparationGuide: null,
-    sortOrder: 2,
-  },
-];
+// Local fallback photos — used only for products that don't have images
+// uploaded into Sanity yet (Sanity's "images" field on each product
+// document, currently empty for both launch products since photos were
+// migrated in before Sanity was connected). Once a product has images in
+// Sanity, those take over automatically — this fallback stops mattering
+// for that product without needing a code change.
+const FALLBACK_IMAGES: Record<string, string[]> = {
+  "rugofs-cocoyam-powder-soup-thickener": [
+    "/images/products/cocoyam-flour-front.webp",
+    "/images/products/cocoyam-flour-back.webp",
+  ],
+  "rugofs-beans-flour": [
+    "/images/products/beans-flour-front.webp",
+    "/images/products/beans-flour-back.webp",
+  ],
+};
+
+const PRODUCTS_QUERY = `*[_type == "product"] | order(sortOrder asc){
+  _id,
+  name,
+  "slug": slug.current,
+  "categorySlug": category->slug.current,
+  shortDescription,
+  "longDescription": pt::text(longDescription),
+  activeIngredient,
+  nafdacRegNo,
+  images,
+  packSizes,
+  isBestseller,
+  status,
+  "nutritionInfo": pt::text(nutritionInfo),
+  "preparationGuide": pt::text(preparationGuide),
+  sortOrder
+}`;
+
+let rawProducts: any[] = [];
+try {
+  rawProducts = (await sanityClient.fetch(PRODUCTS_QUERY)) ?? [];
+} catch (err) {
+  // A build-time Sanity outage shouldn't silently ship an empty shop page
+  // without a trace — log loudly. The build still completes (with no
+  // products) rather than failing outright, since a failed build means
+  // Netlify keeps serving the last good deploy, which is usually the safer
+  // outcome than blocking a deploy over a transient CMS hiccup.
+  console.error(
+    "[sanity] Failed to fetch products at build time — the build will proceed with an empty product list. Check PUBLIC_SANITY_PROJECT_ID / PUBLIC_SANITY_DATASET and https://rugofs-foods.sanity.studio/ status.",
+    err,
+  );
+}
+
+export const products: Product[] = rawProducts.map((p) => ({
+  name: p.name,
+  slug: p.slug,
+  categorySlug: p.categorySlug ?? null,
+  shortDescription: p.shortDescription ?? "",
+  longDescription: p.longDescription ?? "",
+  activeIngredient: p.activeIngredient ?? "",
+  nafdacRegNo: p.nafdacRegNo ?? "",
+  images:
+    Array.isArray(p.images) && p.images.length > 0
+      ? p.images.map((img: any) => urlFor(img).width(1200).fit("max").url())
+      : (FALLBACK_IMAGES[p.slug] ?? []),
+  packSizes: (p.packSizes ?? []).map((s: any) => ({
+    size: s.size,
+    priceNGN: s.priceNGN ?? null,
+    sku: s.sku ?? null,
+    inStock: s.inStock ?? true,
+    nafdacApproved: s.nafdacApproved ?? false,
+  })),
+  isBestseller: !!p.isBestseller,
+  status: p.status === "live" ? "live" : "coming-soon",
+  nutritionInfo: p.nutritionInfo || null,
+  preparationGuide: p.preparationGuide || null,
+  sortOrder: p.sortOrder ?? 0,
+}));
 
 export function getLiveProducts() {
   return products

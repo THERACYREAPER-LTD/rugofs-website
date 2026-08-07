@@ -1,31 +1,73 @@
-// Mirrors the `siteSettings` singleton document in the Sanity schema
-// (11 Operations/Website Build Spec — Phase 1 Catalog.md, Section 3).
-// When Sanity is connected, replace this static object with a GROQ fetch
-// of the singleton — field names below match the schema 1:1 so the swap
-// should not require touching the pages/components that import this.
+// Site settings now live in Sanity Studio as the `siteSettings` singleton
+// document (see src/data/products.ts for the full explanation of this
+// pattern). This is contact info / WhatsApp number / tagline used across
+// nearly every page, so unlike products.ts this file keeps a hardcoded
+// FALLBACK — if a build-time Sanity fetch ever fails, the site should still
+// show correct contact details rather than blank fields everywhere.
+import { sanityClient } from "../lib/sanity";
 
-export const siteSettings = {
+const SETTINGS_QUERY = `*[_type == "siteSettings"][0]{
+  tagline,
+  brandPromise,
+  whatsappNumber,
+  phone,
+  email,
+  address,
+  socialLinks,
+  googleBusinessProfileUrl
+}`;
+
+type SiteSettings = {
+  tagline: string;
+  brandPromise: string;
+  whatsappNumber: string;
+  phone: string;
+  email: string;
+  address: string;
+  socialLinks: { platform: string; url: string }[];
+  googleBusinessProfileUrl: string;
+};
+
+// Last-known-good values as of the 2026-08-07 Sanity migration — kept as a
+// fallback only, not the source of truth. Edit these in Sanity Studio, not
+// here; this copy exists purely so a transient CMS outage at build time
+// doesn't blank out contact info sitewide.
+const FALLBACK: SiteSettings = {
   tagline:
     "Transforming Nigerian harvests into premium staples. Preserving Goodness, Elevating Taste.",
   brandPromise: "Wholesome Food. Stronger Families. Better Generations.",
-
-  // Confirmed 2026-08-05. wa.me deep links need the international format
-  // with no leading zero and no "+". Verify this format against WhatsApp's
-  // current Click to Chat documentation before go-live.
   whatsappNumber: "2348181380026",
-  whatsappNumberDisplay: "0818 138 0026",
-
   phone: "0818 138 0026",
-  email: "rugofsfoods@gmail.com", // registered CAC email — confirm this is the right public-facing inbox before launch
+  email: "rugofsfoods@gmail.com",
   address: "NSPRI Building, Mile 4, Rumueme, Port Harcourt, Rivers State, Nigeria",
-
-  // OPEN — not yet gathered. Leave empty until the founder shares real links;
-  // an empty array means the site simply won't render a social row.
-  socialLinks: [] as { platform: string; url: string }[],
-
-  // OPEN — not yet gathered.
+  socialLinks: [],
   googleBusinessProfileUrl: "",
 };
+
+let siteSettingsResolved: SiteSettings = FALLBACK;
+try {
+  const result = await sanityClient.fetch(SETTINGS_QUERY);
+  if (result) {
+    siteSettingsResolved = {
+      tagline: result.tagline || FALLBACK.tagline,
+      brandPromise: result.brandPromise || FALLBACK.brandPromise,
+      whatsappNumber: result.whatsappNumber || FALLBACK.whatsappNumber,
+      phone: result.phone || FALLBACK.phone,
+      email: result.email || FALLBACK.email,
+      address: result.address || FALLBACK.address,
+      socialLinks: result.socialLinks || FALLBACK.socialLinks,
+      googleBusinessProfileUrl:
+        result.googleBusinessProfileUrl || FALLBACK.googleBusinessProfileUrl,
+    };
+  }
+} catch (err) {
+  console.error(
+    "[sanity] Failed to fetch site settings at build time — falling back to the last-known-good values baked into this file.",
+    err,
+  );
+}
+
+export const siteSettings = siteSettingsResolved;
 
 export function whatsappLink(prefillText: string) {
   const encoded = encodeURIComponent(prefillText);

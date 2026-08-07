@@ -1,13 +1,13 @@
 ---
-import type { Product } from "../data/products";
+import type { Product, PackSize } from "../data/products";
 
 interface Props {
   product: Product;
 }
 
 const { product } = Astro.props;
-const approvedSizes = product.packSizes.filter((p) => p.nafdacApproved);
-const sizeLabel = approvedSizes.map((s) => s.size).join(", ");
+const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved);
+const sizeLabel = approvedSizes.map((s: PackSize) => s.size).join(", ");
 ---
 
 <a href={`/products/${product.slug}`} class="card product-card">
@@ -36,8 +36,17 @@ const sizeLabel = approvedSizes.map((s) => s.size).join(", ");
 
   .product-photo {
     aspect-ratio: 4 / 3;
-    object-fit: cover;
+    object-fit: contain;
     width: 100%;
+    padding: 1.5rem;
+    background: radial-gradient(ellipse at center, rgba(200, 155, 60, 0.12) 0%, rgba(245, 239, 227, 0.55) 45%, transparent 72%);
+    filter: drop-shadow(0 14px 18px rgba(43, 35, 32, 0.16));
+    transition: filter 0.18s ease, transform 0.18s ease;
+  }
+
+  .product-card:hover .product-photo {
+    filter: drop-shadow(0 18px 24px rgba(43, 35, 32, 0.22));
+    transform: translateY(-2px);
   }
 
   .product-name {

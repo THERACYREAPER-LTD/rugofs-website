@@ -2,7 +2,7 @@
 export const prerender = true;
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ProductCard from "../components/ProductCard.astro";
-import { siteSettings, whatsappLink } from "../data/siteSettings";
+import { siteSettings } from "../data/siteSettings";
 import { getLiveProducts, getBestseller } from "../data/products";
 
 const products = getLiveProducts();
@@ -29,34 +29,62 @@ const drive = [
         <h1>Transforming Nigerian Harvests Into Premium Staples.</h1>
         <p class="hero-sub">Preserving Goodness, Elevating Taste.</p>
         <p class="hero-intro">
-          Rugofs Foods hygienically processes and packages NAFDAC-registered
-          staples rooted in Nigerian harvests. From cocoyam to beans, every
-          pack is made to bring nourishment, confidence, and value to your
-          table.
+          Rugofs Foods hygienically processes and packages staples rooted in
+          Nigerian harvests. From cocoyam to beans, every pack is made to
+          bring nourishment, confidence, and value to your table.
         </p>
         <div class="hero-ctas">
           <a href="/products" class="btn btn-primary">Shop Our Products</a>
-          <a
-            href={whatsappLink("Hi Rugofs Foods, I'd like to place an order.")}
-            class="btn btn-whatsapp"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Order via WhatsApp
-          </a>
+          <a href="/about" class="btn btn-outline">Our Story</a>
         </div>
       </div>
 
-      <div class="hero-visual" aria-hidden="true">
+      <div class="hero-visual">
         <div class="hero-visual-inner">
-          <span class="hero-visual-icon">🌾</span>
-          <p class="hero-visual-label">Now Processing</p>
-          <ul class="hero-visual-list">
-            <li>Cocoyam Flour</li>
-            <li>Beans Flour</li>
-          </ul>
-          <span class="badge">NAFDAC-Registered</span>
+          <img
+            src="/images/products/cocoyam-flour-front.webp"
+            alt="Rugofs Cocoyam Flour packaging"
+            class="hero-photo hero-photo-back"
+          />
+          <img
+            src="/images/products/beans-flour-front.webp"
+            alt="Rugofs Beans Flour packaging"
+            class="hero-photo hero-photo-front"
+          />
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="trust-strip">
+    <div class="container trust-strip-inner">
+      <div class="trust-badge">
+        <span class="trust-badge-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 21c0-8 4-15 14-16-1 10-6 15-14 16z"/>
+            <path d="M5 21c2-4 5-7 9-10"/>
+          </svg>
+        </span>
+        <span class="trust-badge-label">100% Natural</span>
+      </div>
+      <div class="trust-badge">
+        <span class="trust-badge-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3l7 3v6c0 5-3.2 8-7 9-3.8-1-7-4-7-9V6z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
+        </span>
+        <span class="trust-badge-label">No Additives, No Preservatives</span>
+      </div>
+      <div class="trust-badge">
+        <span class="trust-badge-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 8l-9-5-9 5 9 5 9-5z"/>
+            <path d="M3 8v8l9 5 9-5V8"/>
+            <path d="M12 13v8"/>
+          </svg>
+        </span>
+        <span class="trust-badge-label">Hygienically Processed &amp; Packaged</span>
       </div>
     </div>
   </section>
@@ -64,6 +92,7 @@ const drive = [
   <section class="section brand-promise">
     <div class="container">
       <p>{siteSettings.brandPromise}</p>
+      <p class="brand-seal">Preserving Goodness, Elevating Taste.</p>
     </div>
   </section>
 
@@ -74,12 +103,19 @@ const drive = [
           <span class="badge">Best Seller</span>
           <h2>{bestseller.name}</h2>
           <p>
-            A Port Harcourt kitchen staple, NAFDAC-registered and ready to
-            elevate your soup.
+            A Port Harcourt kitchen staple, ready to elevate your soup.
           </p>
           <a href={`/products/${bestseller.slug}`} class="btn btn-outline">View Product</a>
         </div>
-        <div class="placeholder-photo bestseller-photo">Product photo coming soon</div>
+        {bestseller.images.length > 0 ? (
+          <img
+            src={bestseller.images[0]}
+            alt={bestseller.name}
+            class="bestseller-photo"
+          />
+        ) : (
+          <div class="placeholder-photo bestseller-photo">Product photo coming soon</div>
+        )}
       </div>
     </section>
   )}
@@ -161,21 +197,15 @@ const drive = [
   .hero-visual-inner {
     position: relative;
     width: 100%;
-    max-width: 320px;
+    max-width: 340px;
     aspect-ratio: 4 / 5;
     border-radius: 20px;
     background:
-      radial-gradient(circle at 18% 20%, rgba(200, 155, 60, 0.35) 0, transparent 45%),
-      radial-gradient(circle at 82% 78%, rgba(139, 174, 63, 0.3) 0, transparent 45%),
+      radial-gradient(circle at 18% 20%, rgba(214, 154, 26, 0.4) 0, transparent 45%),
+      radial-gradient(circle at 82% 78%, rgba(85, 99, 31, 0.35) 0, transparent 45%),
       var(--color-plum);
     background-size: cover;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: flex-end;
-    gap: 0.6rem;
-    padding: 1.75rem;
-    box-shadow: 0 24px 48px -20px rgba(91, 58, 88, 0.45);
+    box-shadow: 0 24px 48px -20px rgba(42, 10, 40, 0.55);
   }
 
   .hero-visual-inner::before {
@@ -183,47 +213,81 @@ const drive = [
     position: absolute;
     inset: 0;
     border-radius: 20px;
-    background-image: radial-gradient(rgba(245, 239, 227, 0.16) 1.5px, transparent 1.5px);
+    background-image: radial-gradient(rgba(245, 238, 224, 0.16) 1.5px, transparent 1.5px);
     background-size: 18px 18px;
+    z-index: 1;
   }
 
-  .hero-visual-icon {
-    font-size: 2.4rem;
-    line-height: 1;
-    position: relative;
+  .hero-photo {
+    position: absolute;
+    object-fit: contain;
+    filter: drop-shadow(0 20px 28px rgba(20, 5, 19, 0.4));
+    z-index: 2;
   }
 
-  .hero-visual-label {
-    position: relative;
-    margin: 0;
-    color: var(--color-gold);
-    font-family: var(--font-heading);
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+  .hero-photo-back {
+    width: 58%;
+    top: 8%;
+    right: 6%;
+    transform: rotate(6deg);
+    opacity: 0.92;
   }
 
-  .hero-visual-list {
-    position: relative;
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  .hero-photo-front {
+    width: 64%;
+    bottom: 8%;
+    left: 6%;
+    transform: rotate(-4deg);
+    z-index: 3;
+  }
+
+  .trust-strip {
+    background: var(--color-cream);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+    padding: 1.75rem 0;
+  }
+
+  .trust-strip-inner {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 1.5rem 3rem;
+  }
+
+  .trust-badge {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    align-items: center;
+    gap: 0.55rem;
+    max-width: 150px;
+    text-align: center;
   }
 
-  .hero-visual-list li {
-    color: var(--color-cream);
+  .trust-badge-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-green);
+    color: var(--color-green);
+    background: #fff;
+  }
+
+  .trust-badge-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .trust-badge-label {
     font-family: var(--font-heading);
     font-weight: 600;
-    font-size: 1.15rem;
-  }
-
-  .hero-visual-inner .badge {
-    position: relative;
-    margin-top: 0.4rem;
+    font-size: 0.78rem;
+    line-height: 1.3;
+    color: var(--color-brown);
   }
 
   .brand-promise {
@@ -237,6 +301,14 @@ const drive = [
     font-weight: 600;
     font-size: 1.3rem;
     margin: 0;
+  }
+
+  .brand-seal {
+    color: var(--color-gold) !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    margin-top: 0.6rem !important;
+    letter-spacing: 0.02em;
   }
 
   .bestseller {
@@ -254,7 +326,11 @@ const drive = [
 
   .bestseller-photo {
     aspect-ratio: 4 / 3;
-    border-radius: var(--radius);
+    object-fit: contain;
+    width: 100%;
+    padding: 1.5rem;
+    background: radial-gradient(ellipse at center, rgba(139, 174, 63, 0.14) 0%, rgba(245, 239, 227, 0.5) 45%, transparent 72%);
+    filter: drop-shadow(0 16px 22px rgba(43, 35, 32, 0.18));
   }
 
   .drive-list {

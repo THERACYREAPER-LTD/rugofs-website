@@ -1,15 +1,16 @@
 /* Rugofs Foods — Design Tokens
-   Source: 04 Visual Identity/Color Palette & Typography.md
-   Colors are confirmed brand colors. Headline/body typeface choice (Montserrat/Lato)
-   is a working default per the Website Build Spec — flagged there for founder/brand
-   review, not yet declared final. */
+   Source: 04 Visual Identity/Color Palette & Typography.md — founder-supplied
+   hex values (confirmed source of truth, not sampled/guessed). Headline/body
+   typeface choice (Montserrat/Lato) is a working default per the Website
+   Build Spec — flagged there for founder/brand review, not yet final. */
 
 :root {
-  --color-plum: #5B3A58;      /* Harvest Plum */
-  --color-gold: #C89B3C;      /* Harvest Gold */
-  --color-brown: #5A3E2B;     /* Earth Brown */
-  --color-green: #8BAE3F;     /* Leaf Green */
-  --color-cream: #F5EFE3;     /* Warm Cream */
+  --color-plum: #5B3A58;       /* Harvest Plum — primary accent, premium cues */
+  --color-plum-light: #7A5477; /* lighter tint for hover states / accents */
+  --color-gold: #C89B3C;       /* Harvest Gold — warmth, harvest */
+  --color-brown: #5A3E2B;      /* Earth Brown — grounding, packaging base */
+  --color-green: #8BAE3F;      /* Leaf Green — freshness, natural cue */
+  --color-cream: #F5EFE3;      /* Warm Cream — background, neutral base */
 
   --color-text: #2B2320;
   --color-text-muted: #6B5D4F;
@@ -122,6 +123,16 @@ img {
 .btn-whatsapp {
   background: #25D366;
   color: #06210F;
+}
+
+.btn-whatsapp-outline {
+  background: transparent;
+  border-color: #25D366;
+  color: #128C4A;
+}
+
+.btn-whatsapp-outline:hover {
+  background: rgba(37, 211, 102, 0.08);
 }
 
 .btn-outline {

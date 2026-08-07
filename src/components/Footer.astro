@@ -5,7 +5,10 @@ import { siteSettings } from "../data/siteSettings";
 <footer class="site-footer">
   <div class="container footer-inner">
     <div>
-      <div class="footer-brand">RUGOFS FOODS</div>
+      <div class="footer-brand">
+        <img src="/images/brand/rugofs-logo.png" alt="Rugofs Foods" class="footer-logo" />
+        <span>RUGOFS FOODS</span>
+      </div>
       <p class="footer-tagline">{siteSettings.tagline}</p>
     </div>
     <div class="footer-col">
@@ -13,6 +16,11 @@ import { siteSettings } from "../data/siteSettings";
       <p>{siteSettings.address}</p>
       <p><a href={`mailto:${siteSettings.email}`}>{siteSettings.email}</a></p>
       <p><a href={`tel:${siteSettings.phone.replace(/\s/g, "")}`}>{siteSettings.phone}</a></p>
+      <p>
+        <a href={`https://wa.me/${siteSettings.whatsappNumber}`} target="_blank" rel="noopener noreferrer">
+          Chat on WhatsApp
+        </a>
+      </p>
     </div>
     <div class="footer-col">
       <h4>Shop</h4>
@@ -60,11 +68,23 @@ import { siteSettings } from "../data/siteSettings";
   }
 
   .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
     font-family: var(--font-heading);
     font-weight: 700;
     font-size: 1.1rem;
     letter-spacing: 0.03em;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .footer-logo {
+    height: 36px;
+    width: 36px;
+    object-fit: contain;
+    background: var(--color-cream);
+    border-radius: 50%;
+    padding: 3px;
   }
 
   .footer-tagline {

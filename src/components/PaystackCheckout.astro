@@ -54,14 +54,11 @@ const whatsappFallback = whatsappLink(
     <p class="checkout-error" hidden></p>
   </form>
 
-  <a
-    href={whatsappFallback}
-    class="btn btn-whatsapp whatsapp-fallback"
-    target="_blank"
-    rel="noopener noreferrer"
-  >
-    Or Order via WhatsApp Instead
-  </a>
+  <p class="whatsapp-fallback-note">
+    Having trouble checking out?{" "}
+    <a href={whatsappFallback} target="_blank" rel="noopener noreferrer">Message us on WhatsApp</a>{" "}
+    and we'll help you complete your order.
+  </p>
 
   <p class="checkout-policy-note">
     By ordering, you agree to our <a href="/policies#delivery">delivery</a> and
@@ -206,10 +203,17 @@ const whatsappFallback = whatsappLink(
     font-weight: 600;
   }
 
-  .whatsapp-fallback {
-    width: 100%;
+  .whatsapp-fallback-note {
     text-align: center;
-    margin-top: 0.75rem;
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    margin-top: 0.85rem;
+    margin-bottom: 0;
+  }
+
+  .whatsapp-fallback-note a {
+    color: #128C4A;
+    font-weight: 600;
   }
 
   .checkout-policy-note {
