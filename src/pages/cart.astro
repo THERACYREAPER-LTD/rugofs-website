@@ -1,0 +1,499 @@
+---
+export const prerender = true;
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { PAYSTACK_PUBLIC_KEY } from "../data/payment";
+import { whatsappLink } from "../data/siteSettings";
+
+const whatsappFallback = whatsappLink(
+  "Hi Rugofs Foods, I'd like to order but I'm having trouble with the checkout on your site.",
+);
+---
+
+<BaseLayout title="Your Cart" description="Review your Rugofs Foods order.">
+  <section class="section">
+    <div class="container cart-page" data-paystack-key={PAYSTACK_PUBLIC_KEY}>
+      <h1>Your Cart</h1>
+
+      <div data-cart-empty class="cart-empty" hidden>
+        <p>Your cart is empty.</p>
+        <a href="/products" class="btn btn-primary">Browse Products</a>
+      </div>
+
+      <div data-cart-filled class="cart-filled" hidden>
+        <div class="cart-grid">
+          <div class="cart-items" data-cart-items></div>
+
+          <div class="cart-summary">
+            <div class="summary-row summary-subtotal">
+              <span>Subtotal</span>
+              <span data-cart-subtotal>₦0</span>
+            </div>
+            <p class="summary-note">
+              Delivery fee (if applicable) is confirmed with you directly after
+              your order, based on your location within Port Harcourt — it's
+              not charged here at checkout.
+            </p>
+
+            <hr class="divider" />
+
+            <form data-checkout-form class="checkout-form">
+              <label>
+                Full Name
+                <input type="text" name="name" required autocomplete="name" />
+              </label>
+              <label>
+                Email <span class="req-note">(required by Paystack for your receipt)</span>
+                <input type="email" name="email" required autocomplete="email" />
+              </label>
+              <label>
+                Phone / WhatsApp Number
+                <input type="tel" name="phone" required autocomplete="tel" />
+              </label>
+
+              <fieldset class="delivery-fieldset">
+                <legend>How would you like your order?</legend>
+                <label class="radio-label">
+                  <input type="radio" name="deliveryMethod" value="pickup" checked />
+                  In-store pickup (no delivery fee)
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="deliveryMethod" value="delivery" />
+                  Delivery (fee confirmed after order)
+                </label>
+              </fieldset>
+
+              <label data-delivery-address-field hidden>
+                Delivery Address
+                <textarea name="deliveryAddress" rows="3"></textarea>
+              </label>
+
+              <button type="submit" class="btn btn-primary pay-btn">
+                Pay Now — <span data-cart-subtotal-btn>₦0</span>
+              </button>
+
+              <p class="checkout-error" data-checkout-error hidden></p>
+            </form>
+
+            <p class="whatsapp-fallback-note">
+              Having trouble checking out?{" "}
+              <a href={whatsappFallback} target="_blank" rel="noopener noreferrer">Message us on WhatsApp</a>{" "}
+              and we'll help you complete your order.
+            </p>
+
+            <p class="checkout-policy-note">
+              By ordering, you agree to our <a href="/policies#delivery">delivery</a> and
+              <a href="/policies#refunds">refund</a> policies.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script src="https://js.paystack.co/v1/inline.js"></script>
+<script>
+  import {
+    getCart,
+    cartSubtotalNGN,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    CART_EVENT_NAME,
+    type CartItem,
+  } from "../lib/cart";
+
+  const emptyEl = document.querySelector<HTMLElement>("[data-cart-empty]");
+  const filledEl = document.querySelector<HTMLElement>("[data-cart-filled]");
+  const itemsEl = document.querySelector<HTMLElement>("[data-cart-items]");
+  const subtotalEls = document.querySelectorAll<HTMLElement>("[data-cart-subtotal], [data-cart-subtotal-btn]");
+  const pageEl = document.querySelector<HTMLElement>(".cart-page");
+  const publicKey = pageEl?.dataset.paystackKey ?? "";
+
+  function formatNGN(amount: number) {
+    return `₦${amount.toLocaleString()}`;
+  }
+
+  function render() {
+    const cart = getCart();
+    if (!emptyEl || !filledEl || !itemsEl) return;
+
+    if (cart.length === 0) {
+      emptyEl.hidden = false;
+      filledEl.hidden = true;
+      return;
+    }
+
+    emptyEl.hidden = true;
+    filledEl.hidden = false;
+
+    itemsEl.innerHTML = cart
+      .map(
+        (item) => `
+      <div class="cart-item" data-slug="${item.productSlug}" data-size="${item.packSize}" data-sku="${item.sku ?? ""}">
+        <img src="${item.image ?? ""}" alt="${item.productName}" class="cart-item-photo" />
+        <div class="cart-item-info">
+          <p class="cart-item-name">${item.productName}</p>
+          <p class="cart-item-size">${item.packSize}</p>
+          <div class="cart-item-qty">
+            <button type="button" class="qty-btn" data-cart-qty-decrease>−</button>
+            <span class="qty-value">${item.quantity}</span>
+            <button type="button" class="qty-btn" data-cart-qty-increase>+</button>
+          </div>
+        </div>
+        <div class="cart-item-price">
+          <span>${formatNGN(item.priceNGN * item.quantity)}</span>
+          <button type="button" class="cart-item-remove" data-cart-remove>Remove</button>
+        </div>
+      </div>
+    `,
+      )
+      .join("");
+
+    const subtotal = cartSubtotalNGN(cart);
+    subtotalEls.forEach((el) => (el.textContent = formatNGN(subtotal)));
+
+    itemsEl.querySelectorAll<HTMLElement>(".cart-item").forEach((row) => {
+      const slug = row.dataset.slug ?? "";
+      const size = row.dataset.size ?? "";
+      const sku = row.dataset.sku || null;
+      const item = cart.find((c) => c.productSlug === slug && c.packSize === size && (c.sku || null) === sku);
+      if (!item) return;
+
+      row.querySelector("[data-cart-qty-decrease]")?.addEventListener("click", () => {
+        updateQuantity(slug, size, sku, item.quantity - 1);
+      });
+      row.querySelector("[data-cart-qty-increase]")?.addEventListener("click", () => {
+        updateQuantity(slug, size, sku, item.quantity + 1);
+      });
+      row.querySelector("[data-cart-remove]")?.addEventListener("click", () => {
+        removeFromCart(slug, size, sku);
+      });
+    });
+  }
+
+  render();
+  window.addEventListener(CART_EVENT_NAME, render);
+
+  // Delivery address field toggling
+  const deliveryRadios = document.querySelectorAll<HTMLInputElement>('input[name="deliveryMethod"]');
+  const addressField = document.querySelector<HTMLElement>("[data-delivery-address-field]");
+  deliveryRadios.forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (addressField) {
+        addressField.hidden = !(radio.value === "delivery" && radio.checked);
+      }
+    });
+  });
+
+  // Checkout submit
+  const form = document.querySelector<HTMLFormElement>("[data-checkout-form]");
+  const errorEl = document.querySelector<HTMLElement>("[data-checkout-error]");
+
+  form?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (errorEl) errorEl.hidden = true;
+
+    const cart = getCart();
+    if (cart.length === 0) return;
+
+    if (!publicKey) {
+      if (errorEl) {
+        errorEl.textContent =
+          "Payment isn't configured yet — the Paystack public key is missing. Please use WhatsApp to order instead.";
+        errorEl.hidden = false;
+      }
+      return;
+    }
+
+    const data = new FormData(form);
+    const name = String(data.get("name") || "");
+    const email = String(data.get("email") || "");
+    const phone = String(data.get("phone") || "");
+    const deliveryMethod = String(data.get("deliveryMethod") || "pickup");
+    const deliveryAddress = String(data.get("deliveryAddress") || "");
+
+    if (deliveryMethod === "delivery" && !deliveryAddress.trim()) {
+      if (errorEl) {
+        errorEl.textContent = "Please add a delivery address, or switch to in-store pickup.";
+        errorEl.hidden = false;
+      }
+      return;
+    }
+
+    const subtotal = cartSubtotalNGN(cart);
+    // Short, human-readable reference — doubles as the Paystack transaction
+    // reference AND the customer-facing order number (one reference, not
+    // two competing IDs to keep in sync).
+    const orderRef = `RGF-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+    const cartMetadata: Pick<CartItem, "productSlug" | "productName" | "packSize" | "sku" | "priceNGN" | "quantity">[] =
+      cart.map((item) => ({
+        productSlug: item.productSlug,
+        productName: item.productName,
+        packSize: item.packSize,
+        sku: item.sku,
+        priceNGN: item.priceNGN,
+        quantity: item.quantity,
+      }));
+
+    // @ts-ignore — PaystackPop is loaded globally by the inline.js script above
+    const handler = window.PaystackPop.setup({
+      key: publicKey,
+      email,
+      amount: Math.round(subtotal * 100), // Paystack expects kobo
+      currency: "NGN",
+      ref: orderRef,
+      metadata: {
+        order_ref: orderRef,
+        customer_name: name,
+        customer_phone: phone,
+        delivery_method: deliveryMethod,
+        delivery_address: deliveryMethod === "delivery" ? deliveryAddress : null,
+        cart: cartMetadata,
+        custom_fields: [
+          { display_name: "Order Reference", variable_name: "order_ref", value: orderRef },
+          { display_name: "Customer Name", variable_name: "customer_name", value: name },
+          { display_name: "Phone", variable_name: "phone", value: phone },
+        ],
+      },
+      callback: function (response: { reference: string }) {
+        // Payment succeeded — clear the cart before navigating away, then
+        // hand off to order-confirmed.astro, which independently re-verifies
+        // the payment server-side with Paystack (never trusts this client
+        // callback alone) before writing the order to Supabase.
+        clearCart();
+        const params = new URLSearchParams({ reference: response.reference });
+        window.location.href = `/order-confirmed?${params.toString()}`;
+      },
+      onClose: function () {
+        // Customer closed the popup without paying — cart stays intact.
+      },
+    });
+    handler.openIframe();
+  });
+</script>
+
+<style>
+  .cart-page h1 {
+    margin-bottom: 1.5rem;
+  }
+
+  .cart-empty {
+    text-align: center;
+    padding: 3rem 0;
+  }
+
+  .cart-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  @media (max-width: 800px) {
+    .cart-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .cart-items {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .cart-item {
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: #fff;
+  }
+
+  .cart-item-photo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    background: linear-gradient(160deg, var(--color-cream) 0%, #FBF8F1 100%);
+    border-radius: var(--radius);
+    padding: 0.4rem;
+  }
+
+  .cart-item-name {
+    margin: 0;
+    font-weight: 600;
+    color: var(--color-brown);
+  }
+
+  .cart-item-size {
+    margin: 0.1rem 0 0.5rem;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+  }
+
+  .cart-item-qty {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 0.15rem 0.5rem;
+  }
+
+  .qty-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--color-border);
+    background: #fff;
+    color: var(--color-plum);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .qty-value {
+    min-width: 1.2em;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .cart-item-price {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.4rem;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    color: var(--color-brown);
+  }
+
+  .cart-item-remove {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: 0.78rem;
+    font-weight: 400;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .cart-summary {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    background: var(--color-cream);
+  }
+
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--color-plum);
+  }
+
+  .summary-note {
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    margin-top: 0.5rem;
+  }
+
+  .checkout-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .checkout-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--color-brown);
+  }
+
+  .req-note {
+    font-weight: 400;
+    color: var(--color-text-muted);
+    font-size: 0.78rem;
+  }
+
+  .checkout-form input,
+  .checkout-form textarea {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    padding: 0.65em 0.8em;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-weight: 400;
+    color: var(--color-text);
+  }
+
+  .delivery-fieldset {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 0.75rem 0.9rem;
+  }
+
+  .delivery-fieldset legend {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--color-brown);
+    padding: 0 0.3rem;
+  }
+
+  .radio-label {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 0.5rem !important;
+    font-weight: 400 !important;
+    color: var(--color-text) !important;
+    margin: 0.35rem 0;
+  }
+
+  .pay-btn {
+    margin-top: 0.25rem;
+  }
+
+  .checkout-error {
+    color: #A33A3A;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .whatsapp-fallback-note {
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    margin-top: 1rem;
+    margin-bottom: 0;
+  }
+
+  .whatsapp-fallback-note a {
+    color: #128C4A;
+    font-weight: 600;
+  }
+
+  .checkout-policy-note {
+    margin-top: 0.85rem;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    text-align: center;
+  }
+
+  .checkout-policy-note a {
+    color: var(--color-plum);
+    font-weight: 600;
+  }
+</style>

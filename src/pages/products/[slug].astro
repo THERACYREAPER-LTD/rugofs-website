@@ -2,8 +2,8 @@
 export const prerender = true;
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { products, getProductBySlug } from "../../data/products";
-import PaystackCheckout from "../../components/PaystackCheckout.astro";
-import { TEST_CHECKOUT_AMOUNT_NGN, IS_TEST_PRICING } from "../../data/payment";
+import type { PackSize } from "../../data/products";
+import { whatsappLink } from "../../data/siteSettings";
 
 export function getStaticPaths() {
   return products
@@ -18,7 +18,7 @@ if (!product) {
   return Astro.redirect("/products");
 }
 
-const approvedSizes = product.packSizes.filter((p) => p.nafdacApproved);
+const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved);
 ---
 
 <BaseLayout title={product.name} description={product.shortDescription}>
@@ -59,38 +59,114 @@ const approvedSizes = product.packSizes.filter((p) => p.nafdacApproved);
               <span class="price-value">
                 {size.priceNGN != null
                   ? `₦${size.priceNGN.toLocaleString()}`
-                  : IS_TEST_PRICING
-                  ? `Test checkout: ₦${TEST_CHECKOUT_AMOUNT_NGN.toLocaleString()} (real price not set yet)`
                   : "Message us on WhatsApp for current pricing"}
               </span>
             </div>
           ))}
         </div>
 
-        {/* Only one NAFDAC-approved pack size exists per product today, so
-            this checks out against approvedSizes[0] directly. If a second
-            approved size is ever added, this needs a size selector before
-            checkout instead of assuming the first one. */}
-        {approvedSizes[0] && (
-          <PaystackCheckout
-            productName={product.name}
-            productSlug={product.slug}
-            packSize={approvedSizes[0].size}
-            priceNGN={approvedSizes[0].priceNGN}
-          />
+        {/* Add to Cart only shows once a real price is set on this pack size
+            in Sanity. Until then, pricing isn't finalized, so customers get
+            a WhatsApp CTA instead — no placeholder charge is ever shown to
+            a real visitor. Only one NAFDAC-approved pack size exists per
+            product today, so this checks out against approvedSizes[0]
+            directly. If a second approved size is ever added, this needs a
+            size selector before add-to-cart instead of assuming the first
+            one. */}
+        {approvedSizes[0] && approvedSizes[0].priceNGN != null ? (
+          <div
+            class="add-to-cart-block"
+            data-product-slug={product.slug}
+            data-product-name={product.name}
+            data-pack-size={approvedSizes[0].size}
+            data-sku={approvedSizes[0].sku ?? ""}
+            data-price-ngn={approvedSizes[0].priceNGN}
+            data-image={product.images[0] ?? ""}
+          >
+            <div class="qty-row">
+              <span class="qty-label">Quantity</span>
+              <div class="qty-control">
+                <button type="button" class="qty-btn" data-qty-decrease aria-label="Decrease quantity">−</button>
+                <span class="qty-value" data-qty-value>1</span>
+                <button type="button" class="qty-btn" data-qty-increase aria-label="Increase quantity">+</button>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary order-btn" data-add-to-cart>
+              Add to Cart
+            </button>
+            <p class="cart-added-note" data-cart-added hidden>Added to your cart.</p>
+          </div>
+        ) : (
+          approvedSizes[0] && (
+            <a
+              href={whatsappLink(`Hi Rugofs Foods, I'd like to order ${product.name} (${approvedSizes[0].size}).`)}
+              class="btn btn-whatsapp-outline order-btn"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Message on WhatsApp to Order
+            </a>
+          )
         )}
 
         {(!product.preparationGuide || !product.nutritionInfo) && (
           <div class="open-note" style="margin-top: 1.5rem;">
-            Preparation guide and nutrition information for this product
-            haven't been provided yet — they'll be added here once available,
-            rather than guessed at.
+            Nutrition information and preparation guidance for this product
+            are coming soon.
           </div>
         )}
       </div>
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  import { addToCart } from "../../lib/cart";
+
+  document.querySelectorAll<HTMLElement>(".add-to-cart-block").forEach((block) => {
+    const qtyValueEl = block.querySelector<HTMLElement>("[data-qty-value]");
+    const decreaseBtn = block.querySelector<HTMLButtonElement>("[data-qty-decrease]");
+    const increaseBtn = block.querySelector<HTMLButtonElement>("[data-qty-increase]");
+    const addBtn = block.querySelector<HTMLButtonElement>("[data-add-to-cart]");
+    const addedNote = block.querySelector<HTMLElement>("[data-cart-added]");
+
+    let qty = 1;
+    const renderQty = () => {
+      if (qtyValueEl) qtyValueEl.textContent = String(qty);
+    };
+
+    decreaseBtn?.addEventListener("click", () => {
+      qty = Math.max(1, qty - 1);
+      renderQty();
+    });
+    increaseBtn?.addEventListener("click", () => {
+      qty = Math.min(20, qty + 1);
+      renderQty();
+    });
+
+    addBtn?.addEventListener("click", () => {
+      addToCart(
+        {
+          productSlug: block.dataset.productSlug ?? "",
+          productName: block.dataset.productName ?? "",
+          packSize: block.dataset.packSize ?? "",
+          sku: block.dataset.sku || null,
+          priceNGN: Number(block.dataset.priceNgn ?? "0"),
+          image: block.dataset.image || null,
+        },
+        qty,
+      );
+      if (addedNote) {
+        addedNote.hidden = false;
+        window.setTimeout(() => {
+          addedNote.hidden = true;
+        }, 2500);
+      }
+      qty = 1;
+      renderQty();
+    });
+  });
+</script>
 
 <style>
   .product-detail {
@@ -111,8 +187,10 @@ const approvedSizes = product.packSizes.filter((p) => p.nafdacApproved);
     aspect-ratio: 4 / 5;
     object-fit: contain;
     padding: 2rem;
-    background: radial-gradient(ellipse at center, rgba(91, 58, 88, 0.09) 0%, rgba(245, 239, 227, 0.55) 45%, transparent 72%);
-    filter: drop-shadow(0 18px 26px rgba(43, 35, 32, 0.18));
+    background: linear-gradient(160deg, var(--color-cream) 0%, #FBF8F1 100%);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    filter: drop-shadow(0 12px 18px rgba(43, 35, 32, 0.12));
   }
 
   .detail-desc {
@@ -167,5 +245,66 @@ const approvedSizes = product.packSizes.filter((p) => p.nafdacApproved);
   .order-btn {
     width: 100%;
     text-align: center;
+  }
+
+  .add-to-cart-block {
+    margin-bottom: 1rem;
+  }
+
+  .qty-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .qty-label {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--color-brown);
+  }
+
+  .qty-control {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 0.3rem 0.6rem;
+  }
+
+  .qty-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--color-border);
+    background: #fff;
+    color: var(--color-plum);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .qty-btn:hover {
+    border-color: var(--color-plum);
+  }
+
+  .qty-value {
+    min-width: 1.5em;
+    text-align: center;
+    font-family: var(--font-heading);
+    font-weight: 600;
+  }
+
+  .cart-added-note {
+    color: var(--color-green);
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin: 0.6rem 0 0;
   }
 </style>

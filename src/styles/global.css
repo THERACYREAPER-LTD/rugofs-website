@@ -14,7 +14,7 @@
 
   --color-text: #2B2320;
   --color-text-muted: #6B5D4F;
-  --color-bg: #FFFFFF;
+  --color-bg: #FBF9F4;       /* Warm off-white — subtle cream undertone instead of stark white */
   --color-bg-alt: var(--color-cream);
   --color-border: #E4D9C8;
 

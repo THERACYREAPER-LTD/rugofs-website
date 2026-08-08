@@ -38,10 +38,10 @@ import { siteSettings, whatsappLink } from "../data/siteSettings";
             <p>{siteSettings.phone}</p>
           </div>
 
-          {!siteSettings.googleBusinessProfileUrl && (
-            <div class="open-note">
-              Google Business Profile link not yet provided — will be added
-              here once shared.
+          {siteSettings.googleBusinessProfileUrl && (
+            <div class="detail-row">
+              <span class="eyebrow">Find Us</span>
+              <p><a href={siteSettings.googleBusinessProfileUrl} target="_blank" rel="noopener noreferrer">View on Google</a></p>
             </div>
           )}
         </div>

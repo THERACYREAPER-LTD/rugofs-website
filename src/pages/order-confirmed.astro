@@ -1,8 +1,10 @@
 ---
-export const prerender = false; // must run server-side — this is where the Paystack secret key is used
+export const prerender = false; // must run server-side — this is where the Paystack secret key and Supabase service key are used
 
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { whatsappLink } from "../data/siteSettings";
+import { getSupabaseServerClient } from "../lib/supabaseServer";
+import type { OrderItem } from "../lib/supabaseServer";
 
 // SECURITY: PAYSTACK_SECRET_KEY has no PUBLIC_ prefix, so Astro keeps it
 // server-only — it is never included in any client-side JS bundle. This
@@ -10,15 +12,28 @@ import { whatsappLink } from "../data/siteSettings";
 const secretKey = import.meta.env.PAYSTACK_SECRET_KEY;
 
 const reference = Astro.url.searchParams.get("reference");
-const productName = Astro.url.searchParams.get("product") ?? "your order";
-const packSize = Astro.url.searchParams.get("size") ?? "";
+
+type CartMetadata = {
+  order_ref?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  delivery_method?: "pickup" | "delivery";
+  delivery_address?: string | null;
+  cart?: OrderItem[];
+};
 
 type VerifyResult =
   | { state: "no-reference" }
   | { state: "not-configured" }
   | { state: "error"; message: string }
   | { state: "failed"; message: string }
-  | { state: "success"; amountNGN: number; paidAt: string; customerEmail: string };
+  | {
+      state: "success";
+      amountNGN: number;
+      paidAt: string;
+      customerEmail: string;
+      metadata: CartMetadata;
+    };
 
 async function verify(ref: string, key: string): Promise<VerifyResult> {
   try {
@@ -44,6 +59,12 @@ async function verify(ref: string, key: string): Promise<VerifyResult> {
       amountNGN: (data.amount ?? 0) / 100,
       paidAt: data.paid_at ?? "",
       customerEmail: data.customer?.email ?? "",
+      // The cart contents, customer/delivery info, and order_ref were set
+      // as Paystack metadata at checkout time (see cart.astro) — Paystack
+      // stores and returns them here. This is the ONLY place order details
+      // are reconstructed server-side; the client's cart is never trusted
+      // directly for what gets charged or recorded.
+      metadata: (data.metadata ?? {}) as CartMetadata,
     };
   } catch (err) {
     return { state: "error", message: "Could not reach Paystack to verify this payment." };
@@ -59,8 +80,61 @@ if (!secretKey) {
   result = await verify(reference, secretKey);
 }
 
+let orderWriteError = false;
+let orderRef: string | null = null;
+
+if (result.state === "success") {
+  const meta = result.metadata ?? {};
+  orderRef = meta.order_ref ?? reference ?? null;
+  const supabase = getSupabaseServerClient();
+
+  if (supabase && orderRef && meta.cart && meta.cart.length > 0) {
+    // Upsert on order_ref: if the customer refreshes this page, Paystack
+    // verify runs again (harmless, idempotent) but the order row is written
+    // once, not duplicated.
+    const { error } = await supabase.from("orders").upsert(
+      {
+        order_ref: orderRef,
+        customer_name: meta.customer_name ?? "",
+        customer_phone: meta.customer_phone ?? "",
+        customer_email: result.customerEmail ?? "",
+        delivery_method: meta.delivery_method ?? "pickup",
+        delivery_address: meta.delivery_address ?? null,
+        items: meta.cart,
+        subtotal_ngn: result.amountNGN,
+        status: "paid",
+        paystack_paid_at: result.paidAt || null,
+      },
+      { onConflict: "order_ref" },
+    );
+    if (error) {
+      // Payment already succeeded — don't block the customer's confirmation
+      // over a database write failing. Flag it so the page can still tell
+      // them to keep their WhatsApp fallback handy, and so this is visible
+      // in Netlify's function logs for follow-up.
+      console.error("[supabase] Failed to write order record:", error.message);
+      orderWriteError = true;
+    }
+  } else if (!supabase) {
+    console.error(
+      "[supabase] Order verified but not recorded — PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured.",
+    );
+    orderWriteError = true;
+  }
+}
+
+const cartItems: OrderItem[] = result.state === "success" ? (result.metadata.cart ?? []) : [];
+const deliveryMethod = result.state === "success" ? (result.metadata.delivery_method ?? "pickup") : "pickup";
+const deliveryAddress = result.state === "success" ? (result.metadata.delivery_address ?? "") : "";
+
+const orderSummaryLines = cartItems
+  .map((item) => `- ${item.productName} (${item.packSize}) x${item.quantity}`)
+  .join("\n");
+
 const notifyWhatsapp = whatsappLink(
-  `Hi Rugofs Foods, I just paid for ${productName} (${packSize}). Reference: ${reference ?? ""}`
+  `Hi Rugofs Foods, I just paid for my order. Reference: ${orderRef ?? reference ?? ""}${
+    orderSummaryLines ? `\n${orderSummaryLines}` : ""
+  }`,
 );
 ---
 
@@ -71,15 +145,49 @@ const notifyWhatsapp = whatsappLink(
         <>
           <h1>Payment Confirmed</h1>
           <p>
-            Thank you — your payment of <strong>₦{result.amountNGN.toLocaleString()}</strong> for{" "}
-            <strong>{productName}{packSize ? ` (${packSize})` : ""}</strong> was verified successfully.
+            Thank you — your payment of <strong>₦{result.amountNGN.toLocaleString()}</strong> was
+            verified successfully.
           </p>
-          <p class="ref-line">Reference: <code>{reference}</code></p>
+          {orderRef && <p class="ref-line">Order Reference: <code>{orderRef}</code></p>}
+
+          {cartItems.length > 0 && (
+            <ul class="order-items">
+              {cartItems.map((item) => (
+                <li>
+                  <span>{item.productName} ({item.packSize}) × {item.quantity}</span>
+                  <span>₦{(item.priceNGN * item.quantity).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <p class="delivery-line">
+            {deliveryMethod === "delivery"
+              ? `Delivery to: ${deliveryAddress || "address provided at checkout"}`
+              : "In-store pickup"}
+          </p>
+
           <div class="open-note">
-            There's no order-tracking system connected yet (that's a later
-            build step), so please confirm your order details and delivery
-            address directly with Rugofs Foods on WhatsApp — tap below.
+            {deliveryMethod === "delivery"
+              ? "We'll confirm your delivery fee and timing on WhatsApp shortly."
+              : "We'll confirm pickup details with you on WhatsApp shortly."}{" "}
+            {orderRef && (
+              <>
+                You can check your order status any time at{" "}
+                <a href={`/order-status?ref=${encodeURIComponent(orderRef)}`}>rugofsfoods.com/order-status</a>{" "}
+                using this reference and your phone number.
+              </>
+            )}
           </div>
+
+          {orderWriteError && (
+            <div class="open-note warn-note">
+              Your payment was successful, but we had trouble saving your order details on our
+              end — please message us on WhatsApp with your reference below just in case, so we
+              can confirm it manually.
+            </div>
+          )}
+
           <a href={notifyWhatsapp} class="btn btn-whatsapp" target="_blank" rel="noopener noreferrer">
             Send Order Details on WhatsApp
           </a>
@@ -120,17 +228,63 @@ const notifyWhatsapp = whatsappLink(
 <style>
   .confirm-box {
     max-width: 640px;
-    text-align: center;
+    text-align: left;
     padding: 2rem 0;
+  }
+
+  .confirm-box h1 {
+    text-align: center;
+  }
+
+  .confirm-box > p:first-of-type {
+    text-align: center;
   }
 
   .ref-line {
     font-size: 0.85rem;
     color: var(--color-text-muted);
+    text-align: center;
+  }
+
+  .order-items {
+    list-style: none;
+    margin: 1.25rem 0;
+    padding: 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .order-items li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0;
+    font-size: 0.92rem;
+    color: var(--color-brown);
+  }
+
+  .order-items li + li {
+    border-top: 1px solid var(--color-border);
+  }
+
+  .delivery-line {
+    font-weight: 600;
+    color: var(--color-plum);
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
   }
 
   .confirm-box .open-note {
     text-align: left;
     margin: 1.5rem 0;
+  }
+
+  .warn-note {
+    border-color: #A33A3A;
+    color: #A33A3A;
+  }
+
+  .confirm-box .btn-whatsapp {
+    display: block;
+    text-align: center;
   }
 </style>

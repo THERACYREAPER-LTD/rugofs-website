@@ -17,15 +17,3 @@
 // variable change only; no code here needs to change.
 
 export const PAYSTACK_PUBLIC_KEY = import.meta.env.PUBLIC_PAYSTACK_PUBLIC_KEY ?? "";
-
-// TEST-ONLY placeholder amount. Real per-product pricing isn't set yet (the
-// Pricing Calculator is still waiting on real cost inputs — see
-// 05 Product Architecture/Product Architecture.md). This flat ₦100 charge
-// exists purely to prove the checkout → payment → verification flow works
-// end-to-end before real prices exist. Replace with each product's real
-// priceNGN (src/data/products.ts) once pricing is finalized — the checkout
-// code already prefers a product's real price over this fallback when one
-// is set, so removing this constant's use is a one-line change, not a
-// rebuild.
-export const TEST_CHECKOUT_AMOUNT_NGN = 100;
-export const IS_TEST_PRICING = true;
