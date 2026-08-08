@@ -18,6 +18,10 @@ export type CartItem = {
   priceNGN: number;
   image: string | null;
   quantity: number;
+  // Captured from the product page at add-to-cart time so cart.astro can
+  // show live "X of target ordered" batch progress without a second data
+  // source. null means batching isn't configured for this product.
+  batchTargetQty: number | null;
 };
 
 const CART_STORAGE_KEY = "rugofs_cart_v1";

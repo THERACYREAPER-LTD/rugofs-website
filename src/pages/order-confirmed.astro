@@ -4,7 +4,14 @@ export const prerender = false; // must run server-side — this is where the Pa
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { whatsappLink } from "../data/siteSettings";
 import { getSupabaseServerClient } from "../lib/supabaseServer";
-import type { OrderItem } from "../lib/supabaseServer";
+import type { OrderItem, BatchInfo } from "../lib/supabaseServer";
+// NOTE: products.ts fetches from Sanity via a top-level await, written with
+// build-time prerendered pages in mind. Importing it here (a prerender=false
+// server route) means that fetch re-runs on every request/cold start rather
+// than once at build time — an acceptable trade-off for a low-traffic site
+// to avoid a second Sanity query helper, but worth knowing if traffic grows
+// enough that this becomes a real cost/latency concern.
+import { getProductBySlug } from "../data/products";
 
 // SECURITY: PAYSTACK_SECRET_KEY has no PUBLIC_ prefix, so Astro keeps it
 // server-only — it is never included in any client-side JS bundle. This
@@ -82,6 +89,7 @@ if (!secretKey) {
 
 let orderWriteError = false;
 let orderRef: string | null = null;
+let confirmedItems: OrderItem[] = [];
 
 if (result.state === "success") {
   const meta = result.metadata ?? {};
@@ -89,41 +97,108 @@ if (result.state === "success") {
   const supabase = getSupabaseServerClient();
 
   if (supabase && orderRef && meta.cart && meta.cart.length > 0) {
-    // Upsert on order_ref: if the customer refreshes this page, Paystack
-    // verify runs again (harmless, idempotent) but the order row is written
-    // once, not duplicated.
-    const { error } = await supabase.from("orders").upsert(
-      {
-        order_ref: orderRef,
-        customer_name: meta.customer_name ?? "",
-        customer_phone: meta.customer_phone ?? "",
-        customer_email: result.customerEmail ?? "",
-        delivery_method: meta.delivery_method ?? "pickup",
-        delivery_address: meta.delivery_address ?? null,
-        items: meta.cart,
-        subtotal_ngn: result.amountNGN,
-        status: "paid",
-        paystack_paid_at: result.paidAt || null,
-      },
-      { onConflict: "order_ref" },
-    );
-    if (error) {
-      // Payment already succeeded — don't block the customer's confirmation
-      // over a database write failing. Flag it so the page can still tell
-      // them to keep their WhatsApp fallback handy, and so this is visible
-      // in Netlify's function logs for follow-up.
-      console.error("[supabase] Failed to write order record:", error.message);
-      orderWriteError = true;
+    // Check whether this order was already written before doing anything
+    // batch-related. If the customer refreshes this page, Paystack verify()
+    // runs again (harmless, idempotent) — but assign_order_to_batch()
+    // increments a running count, so calling it a second time for the same
+    // order would silently double-count that order's quantity against its
+    // batch. Only run batch assignment the FIRST time this order_ref is
+    // seen; on a refresh, just read back what was already recorded.
+    const { data: existingOrder } = await supabase
+      .from("orders")
+      .select("items")
+      .eq("order_ref", orderRef)
+      .maybeSingle();
+
+    if (existingOrder) {
+      confirmedItems = (existingOrder.items as OrderItem[]) ?? meta.cart;
+    } else {
+      // Group cart lines by product (a customer could in principle have
+      // more than one pack size of the same product, though today there's
+      // only one approved pack size per product) so each product is only
+      // assigned to its batch ONCE per order, with its total quantity —
+      // not once per cart line.
+      const qtyByProductSlug = new Map<string, number>();
+      for (const item of meta.cart) {
+        qtyByProductSlug.set(item.productSlug, (qtyByProductSlug.get(item.productSlug) ?? 0) + item.quantity);
+      }
+
+      const batchByProductSlug = new Map<string, BatchInfo>();
+      for (const [productSlug, quantity] of qtyByProductSlug.entries()) {
+        const product = getProductBySlug(productSlug);
+        if (!product || product.batchTargetQty == null) continue; // batching not configured for this product
+
+        const { data: batchRow, error: batchError } = await supabase
+          .rpc("assign_order_to_batch", {
+            p_product_slug: productSlug,
+            p_product_name: product.name,
+            p_quantity: quantity,
+            p_target_quantity: product.batchTargetQty,
+          })
+          .single();
+
+        if (batchError || !batchRow) {
+          // Don't block the order over batch tracking failing — the order
+          // itself (payment + fulfillment) is what matters most. Log for
+          // follow-up; the item just won't show batch progress.
+          console.error(`[batches] Failed to assign ${productSlug} to a batch:`, batchError?.message);
+          continue;
+        }
+
+        batchByProductSlug.set(productSlug, {
+          batchId: (batchRow as any).batch_id,
+          status: (batchRow as any).batch_status,
+          collectedQuantity: (batchRow as any).collected_quantity,
+          targetQuantity: (batchRow as any).target_quantity,
+        });
+      }
+
+      confirmedItems = (meta.cart as OrderItem[]).map((item) => ({
+        ...item,
+        batch: batchByProductSlug.get(item.productSlug) ?? null,
+      }));
+
+      // Upsert on order_ref: belt-and-braces against a race between two
+      // near-simultaneous requests for the same reference (e.g. a
+      // double-click before redirect). The batch-assignment guard above
+      // (checked via a SELECT, not a DB-level lock) is the primary
+      // protection; this keeps the order row itself idempotent regardless.
+      const { error } = await supabase.from("orders").upsert(
+        {
+          order_ref: orderRef,
+          customer_name: meta.customer_name ?? "",
+          customer_phone: meta.customer_phone ?? "",
+          customer_email: result.customerEmail ?? "",
+          delivery_method: meta.delivery_method ?? "pickup",
+          delivery_address: meta.delivery_address ?? null,
+          items: confirmedItems,
+          subtotal_ngn: result.amountNGN,
+          status: "paid",
+          paystack_paid_at: result.paidAt || null,
+        },
+        { onConflict: "order_ref" },
+      );
+      if (error) {
+        // Payment already succeeded — don't block the customer's confirmation
+        // over a database write failing. Flag it so the page can still tell
+        // them to keep their WhatsApp fallback handy, and so this is visible
+        // in Netlify's function logs for follow-up.
+        console.error("[supabase] Failed to write order record:", error.message);
+        orderWriteError = true;
+      }
     }
   } else if (!supabase) {
     console.error(
       "[supabase] Order verified but not recorded — PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured.",
     );
     orderWriteError = true;
+    confirmedItems = meta.cart ?? [];
+  } else {
+    confirmedItems = meta.cart ?? [];
   }
 }
 
-const cartItems: OrderItem[] = result.state === "success" ? (result.metadata.cart ?? []) : [];
+const cartItems: OrderItem[] = confirmedItems;
 const deliveryMethod = result.state === "success" ? (result.metadata.delivery_method ?? "pickup") : "pickup";
 const deliveryAddress = result.state === "success" ? (result.metadata.delivery_address ?? "") : "";
 
@@ -154,8 +229,17 @@ const notifyWhatsapp = whatsappLink(
             <ul class="order-items">
               {cartItems.map((item) => (
                 <li>
-                  <span>{item.productName} ({item.packSize}) × {item.quantity}</span>
-                  <span>₦{(item.priceNGN * item.quantity).toLocaleString()}</span>
+                  <div class="order-item-row">
+                    <span>{item.productName} ({item.packSize}) × {item.quantity}</span>
+                    <span>₦{(item.priceNGN * item.quantity).toLocaleString()}</span>
+                  </div>
+                  {item.batch && (
+                    <p class="batch-note">
+                      {item.batch.status === "in_production"
+                        ? `This batch just hit its production threshold (${item.batch.collectedQuantity} of ${item.batch.targetQuantity} units) — production is starting.`
+                        : `Batch progress: ${item.batch.collectedQuantity} of ${item.batch.targetQuantity} units ordered so far. We produce in batches once a product reaches its threshold, so your order is pooled with others' — we'll be in touch with your expected timing.`}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -168,9 +252,11 @@ const notifyWhatsapp = whatsappLink(
           </p>
 
           <div class="open-note">
-            {deliveryMethod === "delivery"
-              ? "We'll confirm your delivery fee and timing on WhatsApp shortly."
-              : "We'll confirm pickup details with you on WhatsApp shortly."}{" "}
+            {cartItems.some((item) => item.batch)
+              ? "Your order is confirmed and pooled into its production batch — see the batch progress above. "
+              : deliveryMethod === "delivery"
+              ? "We'll confirm your delivery fee and timing on WhatsApp shortly. "
+              : "We'll confirm pickup details with you on WhatsApp shortly. "}
             {orderRef && (
               <>
                 You can check your order status any time at{" "}
@@ -255,15 +341,25 @@ const notifyWhatsapp = whatsappLink(
   }
 
   .order-items li {
-    display: flex;
-    justify-content: space-between;
     padding: 0.6rem 0;
     font-size: 0.92rem;
     color: var(--color-brown);
   }
 
+  .order-item-row {
+    display: flex;
+    justify-content: space-between;
+  }
+
   .order-items li + li {
     border-top: 1px solid var(--color-border);
+  }
+
+  .batch-note {
+    margin: 0.35rem 0 0;
+    font-size: 0.82rem;
+    font-weight: 400;
+    color: var(--color-text-muted);
   }
 
   .delivery-line {

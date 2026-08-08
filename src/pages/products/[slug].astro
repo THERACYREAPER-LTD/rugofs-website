@@ -82,6 +82,7 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
             data-sku={approvedSizes[0].sku ?? ""}
             data-price-ngn={approvedSizes[0].priceNGN}
             data-image={product.images[0] ?? ""}
+            data-batch-target-qty={product.batchTargetQty ?? ""}
           >
             <div class="qty-row">
               <span class="qty-label">Quantity</span>
@@ -95,6 +96,18 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
               Add to Cart
             </button>
             <p class="cart-added-note" data-cart-added hidden>Added to your cart.</p>
+
+            {product.batchTargetQty != null && (
+              <div class="batch-progress" data-batch-progress data-slug={product.slug} data-target={product.batchTargetQty}>
+                <p class="batch-progress-note">
+                  We produce in batches once enough orders come in — helps us keep quality high and costs
+                  down. <span data-batch-progress-text>Checking current batch progress…</span>
+                </p>
+                <div class="batch-progress-bar">
+                  <div class="batch-progress-fill" data-batch-progress-fill style="width: 0%"></div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           approvedSizes[0] && (
@@ -109,12 +122,21 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
           )
         )}
 
-        {(!product.preparationGuide || !product.nutritionInfo) && (
-          <div class="open-note" style="margin-top: 1.5rem;">
-            Nutrition information and preparation guidance for this product
-            are coming soon.
-          </div>
-        )}
+        <div class="detail-extra">
+          <h2>How to Prepare</h2>
+          {product.preparationGuide ? (
+            <p class="detail-extra-text">{product.preparationGuide}</p>
+          ) : (
+            <p class="detail-extra-pending">Preparation guidance for this product is coming soon.</p>
+          )}
+
+          <h2>Nutrition Information</h2>
+          {product.nutritionInfo ? (
+            <p class="detail-extra-text">{product.nutritionInfo}</p>
+          ) : (
+            <p class="detail-extra-pending">Nutrition information for this product is coming soon.</p>
+          )}
+        </div>
       </div>
     </div>
   </section>
@@ -145,6 +167,7 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
     });
 
     addBtn?.addEventListener("click", () => {
+      const targetQtyRaw = block.dataset.batchTargetQty;
       addToCart(
         {
           productSlug: block.dataset.productSlug ?? "",
@@ -153,6 +176,7 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
           sku: block.dataset.sku || null,
           priceNGN: Number(block.dataset.priceNgn ?? "0"),
           image: block.dataset.image || null,
+          batchTargetQty: targetQtyRaw ? Number(targetQtyRaw) : null,
         },
         qty,
       );
@@ -165,6 +189,30 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
       qty = 1;
       renderQty();
     });
+  });
+
+  // Live batch progress — fetched from the server since it changes as other
+  // customers order, unlike the rest of this statically-prerendered page.
+  document.querySelectorAll<HTMLElement>("[data-batch-progress]").forEach(async (el) => {
+    const slug = el.dataset.slug ?? "";
+    const target = Number(el.dataset.target ?? "0");
+    const textEl = el.querySelector<HTMLElement>("[data-batch-progress-text]");
+    const fillEl = el.querySelector<HTMLElement>("[data-batch-progress-fill]");
+    if (!slug || !target || !textEl) return;
+
+    try {
+      const res = await fetch(`/api/batch-status?slug=${encodeURIComponent(slug)}`);
+      if (!res.ok) throw new Error("batch-status request failed");
+      const data = await res.json();
+      const collected = Number(data.collectedQuantity ?? 0);
+      const pct = Math.min(100, Math.round((collected / target) * 100));
+      textEl.textContent = `Currently ${collected.toLocaleString()} of ${target.toLocaleString()} units ordered for the next batch.`;
+      if (fillEl) fillEl.style.width = `${pct}%`;
+    } catch {
+      // Non-critical — leave the static copy in place rather than showing
+      // an error for something that's just a nice-to-have progress bar.
+      textEl.textContent = "";
+    }
   });
 </script>
 
@@ -306,5 +354,57 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
     font-weight: 600;
     font-size: 0.85rem;
     margin: 0.6rem 0 0;
+  }
+
+  .batch-progress {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed var(--color-border);
+  }
+
+  .batch-progress-note {
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    margin: 0 0 0.5rem;
+  }
+
+  .batch-progress-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-cream);
+    overflow: hidden;
+  }
+
+  .batch-progress-fill {
+    height: 100%;
+    background: var(--color-gold);
+    border-radius: 999px;
+    transition: width 0.4s ease;
+  }
+
+  .detail-extra {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .detail-extra h2 {
+    font-size: 1.05rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .detail-extra h2:not(:first-child) {
+    margin-top: 1.5rem;
+  }
+
+  .detail-extra-text {
+    color: var(--color-text-muted);
+    white-space: pre-line;
+  }
+
+  .detail-extra-pending {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    font-style: italic;
   }
 </style>

@@ -22,6 +22,21 @@ export function getSupabaseServerClient() {
   });
 }
 
+// Snapshot of a product's batch state at the moment an order was assigned
+// to it (see assign_order_to_batch in the batches table's migration). This
+// is stored on the order item so a customer's confirmation/status page can
+// show "you're in the batch that's X of Y ordered" without a live join —
+// it will go stale as more orders land in the same batch after this one,
+// which is fine: it's a snapshot of progress at order time, not a live
+// counter (order-status.astro and cart.astro fetch the live count
+// separately via /api/batch-status for that).
+export type BatchInfo = {
+  batchId: string;
+  status: "collecting" | "in_production" | "fulfilled" | "cancelled";
+  collectedQuantity: number;
+  targetQuantity: number;
+};
+
 export type OrderItem = {
   productSlug: string;
   productName: string;
@@ -29,6 +44,7 @@ export type OrderItem = {
   sku: string | null;
   priceNGN: number;
   quantity: number;
+  batch?: BatchInfo | null;
 };
 
 export type OrderRecord = {

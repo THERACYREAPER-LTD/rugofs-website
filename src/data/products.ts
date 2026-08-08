@@ -36,6 +36,13 @@ export type Product = {
   nutritionInfo: string | null;
   preparationGuide: string | null;
   sortOrder: number;
+  // Minimum units of this product that must be ordered before a production
+  // batch is triggered. Orders pool continuously in an "open" batch until
+  // this is reached (see src/pages/api/batch-status.ts and
+  // order-confirmed.astro); once hit, that batch moves to production and a
+  // new pool opens automatically. null means batching isn't configured for
+  // this product yet — treat it as unbatched/direct fulfillment.
+  batchTargetQty: number | null;
 };
 
 // Local fallback photos — used only for products that don't have images
@@ -70,7 +77,8 @@ const PRODUCTS_QUERY = `*[_type == "product"] | order(sortOrder asc){
   status,
   "nutritionInfo": pt::text(nutritionInfo),
   "preparationGuide": pt::text(preparationGuide),
-  sortOrder
+  sortOrder,
+  batchTargetQty
 }`;
 
 let rawProducts: any[] = [];
@@ -112,6 +120,7 @@ export const products: Product[] = rawProducts.map((p) => ({
   nutritionInfo: p.nutritionInfo || null,
   preparationGuide: p.preparationGuide || null,
   sortOrder: p.sortOrder ?? 0,
+  batchTargetQty: typeof p.batchTargetQty === "number" ? p.batchTargetQty : null,
 }));
 
 export function getLiveProducts() {

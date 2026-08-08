@@ -34,6 +34,12 @@ const whatsappFallback = whatsappLink(
               not charged here at checkout.
             </p>
 
+            <p class="summary-note batch-summary-note" data-batch-summary-note hidden>
+              We produce in batches once enough orders come in for a product — this keeps quality
+              high and costs down. You'll see live batch progress on each item above, and we'll
+              confirm expected timing after checkout.
+            </p>
+
             <hr class="divider" />
 
             <form data-checkout-form class="checkout-form">
@@ -140,6 +146,11 @@ const whatsappFallback = whatsappLink(
             <span class="qty-value">${item.quantity}</span>
             <button type="button" class="qty-btn" data-cart-qty-increase>+</button>
           </div>
+          ${
+            item.batchTargetQty
+              ? `<p class="cart-item-batch-note" data-batch-note data-slug="${item.productSlug}" data-target="${item.batchTargetQty}">Checking batch progress…</p>`
+              : ""
+          }
         </div>
         <div class="cart-item-price">
           <span>${formatNGN(item.priceNGN * item.quantity)}</span>
@@ -152,6 +163,11 @@ const whatsappFallback = whatsappLink(
 
     const subtotal = cartSubtotalNGN(cart);
     subtotalEls.forEach((el) => (el.textContent = formatNGN(subtotal)));
+
+    const batchSummaryNote = document.querySelector<HTMLElement>("[data-batch-summary-note]");
+    if (batchSummaryNote) {
+      batchSummaryNote.hidden = !cart.some((item) => item.batchTargetQty != null);
+    }
 
     itemsEl.querySelectorAll<HTMLElement>(".cart-item").forEach((row) => {
       const slug = row.dataset.slug ?? "";
@@ -169,6 +185,32 @@ const whatsappFallback = whatsappLink(
       row.querySelector("[data-cart-remove]")?.addEventListener("click", () => {
         removeFromCart(slug, size, sku);
       });
+    });
+
+    // Fetch live batch progress per unique product — one request per
+    // product slug regardless of how many cart lines reference it.
+    const batchNoteEls = itemsEl.querySelectorAll<HTMLElement>("[data-batch-note]");
+    const seenSlugs = new Set<string>();
+    batchNoteEls.forEach(async (noteEl) => {
+      const slug = noteEl.dataset.slug ?? "";
+      const target = Number(noteEl.dataset.target ?? "0");
+      if (!slug || !target || seenSlugs.has(slug)) return;
+      seenSlugs.add(slug);
+
+      const matchingNotes = Array.from(batchNoteEls).filter((el) => el.dataset.slug === slug);
+      try {
+        const res = await fetch(`/api/batch-status?slug=${encodeURIComponent(slug)}`);
+        if (!res.ok) throw new Error("batch-status request failed");
+        const data = await res.json();
+        const collected = Number(data.collectedQuantity ?? 0);
+        matchingNotes.forEach((el) => {
+          el.textContent = `Batch progress: ${collected.toLocaleString()} of ${target.toLocaleString()} units ordered so far.`;
+        });
+      } catch {
+        matchingNotes.forEach((el) => {
+          el.textContent = "";
+        });
+      }
     });
   }
 
@@ -333,6 +375,17 @@ const whatsappFallback = whatsappLink(
     margin: 0.1rem 0 0.5rem;
     font-size: 0.85rem;
     color: var(--color-text-muted);
+  }
+
+  .cart-item-batch-note {
+    margin: 0.5rem 0 0;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+  }
+
+  .batch-summary-note {
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--color-border);
   }
 
   .cart-item-qty {
