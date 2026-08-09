@@ -100,7 +100,6 @@ const drive = [
     <section class="section">
       <div class="container bestseller">
         <div>
-          <span class="badge">Best Seller</span>
           <h2>{bestseller.name}</h2>
           <p>
             A Port Harcourt kitchen staple, ready to elevate your soup.
@@ -200,22 +199,12 @@ const drive = [
     max-width: 340px;
     aspect-ratio: 4 / 5;
     border-radius: 20px;
-    background:
-      radial-gradient(circle at 18% 20%, rgba(214, 154, 26, 0.4) 0, transparent 45%),
-      radial-gradient(circle at 82% 78%, rgba(85, 99, 31, 0.35) 0, transparent 45%),
-      var(--color-plum);
-    background-size: cover;
+    /* Flat Harvest Plum — no gradient blend, so this reads as the true
+       brand color rather than a purple/gold/green wash. Per founder
+       feedback: the old radial-gradient treatment was disliked and made
+       the palette look off-brand. */
+    background: var(--color-plum);
     box-shadow: 0 24px 48px -20px rgba(42, 10, 40, 0.55);
-  }
-
-  .hero-visual-inner::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 20px;
-    background-image: radial-gradient(rgba(245, 238, 224, 0.16) 1.5px, transparent 1.5px);
-    background-size: 18px 18px;
-    z-index: 1;
   }
 
   .hero-photo {

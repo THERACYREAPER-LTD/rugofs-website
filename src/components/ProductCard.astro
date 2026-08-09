@@ -17,7 +17,6 @@ const sizeLabel = approvedSizes.map((s: PackSize) => s.size).join(", ");
     <div class="placeholder-photo">Product photo coming soon</div>
   )}
   <div class="card-body">
-    {product.isBestseller && <span class="badge">Best Seller</span>}
     <h3 class="product-name">{product.name}</h3>
     <p class="product-desc">{product.shortDescription}</p>
     <p class="product-size">{sizeLabel}</p>
