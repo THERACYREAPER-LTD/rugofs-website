@@ -1,18 +1,20 @@
 /* Rugofs Foods — Design Tokens
-   Source: 04 Visual Identity/Color Palette & Typography.md — founder-supplied
-   hex values (confirmed source of truth, not sampled/guessed). Headline/body
-   typeface choice (Montserrat/Lato) is a working default per the Website
-   Build Spec — flagged there for founder/brand review, not yet final. */
+   Source: "RUGOFS FOODS — WEBSITE BUILD REFERENCE" (Google Doc, confirmed
+   directly by Traecy 2026-08-09) — the consolidated, final brand-color
+   reference that supersedes earlier draft palettes. Usage roles (accent /
+   premium cue / primary text / nature cue / background) are as assigned in
+   that doc, not guessed. Headline/body typeface choice (Montserrat/Lato) is
+   a working default per the same doc — confirmed final there too. */
 
 :root {
-  --color-plum: #5B3A58;       /* Harvest Plum — primary accent, premium cues */
+  --color-plum: #5B3A58;       /* Harvest Plum — brand accent */
   --color-plum-light: #7A5477; /* lighter tint for hover states / accents */
-  --color-gold: #C89B3C;       /* Harvest Gold — warmth, harvest */
-  --color-brown: #5A3E2B;      /* Earth Brown — grounding, packaging base */
-  --color-green: #8BAE3F;      /* Leaf Green — freshness, natural cue */
-  --color-cream: #F5EFE3;      /* Warm Cream — background, neutral base */
+  --color-gold: #C89B3C;       /* Harvest Gold — premium cues */
+  --color-brown: #5A3E2B;      /* Earth Brown — primary text */
+  --color-green: #8BAE3F;      /* Leaf Green — nature cues */
+  --color-cream: #F5EFE3;      /* Warm Cream — main background */
 
-  --color-text: #2B2320;
+  --color-text: #5A3E2B;       /* Earth Brown, per confirmed brand doc's "primary text" role */
   --color-text-muted: #6B5D4F;
   --color-bg: #FBF9F4;       /* Warm off-white — subtle cream undertone instead of stark white */
   --color-bg-alt: var(--color-cream);

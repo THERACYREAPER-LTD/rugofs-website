@@ -26,12 +26,10 @@ const drive = [
     <div class="container hero-inner">
       <div class="hero-copy">
         <p class="eyebrow">NAFDAC-Registered · Port Harcourt, Nigeria</p>
-        <h1>Transforming Nigerian Harvests Into Premium Staples.</h1>
-        <p class="hero-sub">Preserving Goodness, Elevating Taste.</p>
+        <h1>Quality Food, Made Convenient.</h1>
         <p class="hero-intro">
-          Rugofs Foods hygienically processes and packages staples rooted in
-          Nigerian harvests. From cocoyam to beans, every pack is made to
-          bring nourishment, confidence, and value to your table.
+          Tasty, nutritious food products made from carefully processed
+          agricultural produce — with quality at the heart of what we do.
         </p>
         <div class="hero-ctas">
           <a href="/products" class="btn btn-primary">Shop Our Products</a>
@@ -93,6 +91,27 @@ const drive = [
     <div class="container">
       <p>{siteSettings.brandPromise}</p>
       <p class="brand-seal">Preserving Goodness, Elevating Taste.</p>
+    </div>
+  </section>
+
+  <section class="section section--alt story-preview">
+    <div class="container narrow">
+      <p class="eyebrow">Our Story</p>
+      <h2>From agricultural potential to everyday nourishment.</h2>
+      <p>
+        Rugofs Foods grew from a long-standing interest in transforming
+        Nigerian agricultural produce into useful, quality food products.
+        Over time, that vision expanded beyond spices — the focus became
+        clear: take good Nigerian agricultural produce, process it
+        carefully, preserve its useful qualities, and make it more
+        convenient for families to use.
+      </p>
+      <p>
+        We are building a food brand rooted in Nigerian agriculture,
+        practical innovation and a simple belief: better food processing
+        can create better value from what our land already produces.
+      </p>
+      <a href="/about" class="btn btn-outline">Our Story</a>
     </div>
   </section>
 
@@ -343,5 +362,17 @@ const drive = [
 
   .drive-list li:first-child::before {
     content: "";
+  }
+
+  .story-preview .narrow {
+    max-width: 640px;
+  }
+
+  .story-preview p {
+    color: var(--color-text-muted);
+  }
+
+  .story-preview .btn {
+    margin-top: 0.5rem;
   }
 </style>

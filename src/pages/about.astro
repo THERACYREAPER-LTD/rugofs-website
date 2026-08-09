@@ -2,6 +2,21 @@
 export const prerender = true;
 import BaseLayout from "../layouts/BaseLayout.astro";
 
+const philosophy = [
+  { title: "Quality", text: "Carefully processed and consistently produced." },
+  { title: "Convenient", text: "Prepared in forms that make everyday cooking easier." },
+  { title: "Accessible", text: "Quality food products should remain within reach of ordinary families." },
+  { title: "Locally Rooted", text: "We value Nigerian agricultural produce and the people who cultivate it." },
+];
+
+const approach = [
+  { step: "01", title: "Source", text: "We begin with agricultural produce selected for processing." },
+  { step: "02", title: "Process", text: "We transform these raw materials into convenient food products while paying attention to quality and product integrity." },
+  { step: "03", title: "Preserve", text: "Our processing approach is designed to retain the natural characteristics and nutritional value of the ingredients as much as possible." },
+  { step: "04", title: "Package", text: "The finished products are packaged for convenient storage, handling and everyday use." },
+  { step: "05", title: "Serve", text: "The result is food that fits naturally into the Nigerian kitchen." },
+];
+
 const drive = [
   "Premium Quality",
   "Innovation",
@@ -24,10 +39,29 @@ const drive = [
       </div>
 
       <h2>Our Story</h2>
-      <div class="open-note">
-        Our full founding story is coming soon. For now, here's what drives
-        everything we do:
-      </div>
+      <p>
+        Rugofs Foods grew from a long-standing interest in transforming
+        Nigerian agricultural produce into useful, quality food products.
+      </p>
+      <p>
+        The journey began with Golden Chifz Services, which started
+        producing and packaging natural spices around 2010. Early
+        participation in exhibitions and food-related events helped
+        demonstrate the potential of the products and encouraged the
+        business to pursue greater value addition through food processing.
+      </p>
+      <p>
+        Over time, the vision expanded beyond spices. The focus became
+        clear: take good Nigerian agricultural produce, process it
+        carefully, preserve its useful qualities, and make it more
+        convenient for families to use. That vision continues through
+        Rugofs Foods today.
+      </p>
+      <p>
+        We are building a food brand rooted in Nigerian agriculture,
+        practical innovation and a simple belief: better food processing can
+        create better value from what our land already produces.
+      </p>
 
       <hr class="divider" />
 
@@ -47,13 +81,39 @@ const drive = [
         businesses.
       </p>
 
-      <h2>Purpose &amp; Philosophy</h2>
-      <p>
-        God placed abundance in the earth. Through innovation, stewardship
-        and uncompromising standards, we transform that abundance into
-        products that nourish people, restore dignity and create
-        opportunity.
+      <hr class="divider" />
+
+      <h2>Our Philosophy</h2>
+      <p class="promise-line">
+        Quality you can trust. Convenience you can use. Value you can
+        afford.
       </p>
+      <div class="pillar-grid">
+        {philosophy.map((item) => (
+          <div class="pillar">
+            <h3>{item.title}</h3>
+            <p>{item.text}</p>
+          </div>
+        ))}
+      </div>
+
+      <hr class="divider" />
+
+      <h2>Our Approach</h2>
+      <p class="approach-intro">From harvest to household.</p>
+      <div class="approach-list">
+        {approach.map((item) => (
+          <div class="approach-step">
+            <span class="approach-num">{item.step}</span>
+            <div>
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <hr class="divider" />
 
       <h2>Our Drive</h2>
       <ul class="drive-list">
@@ -87,5 +147,75 @@ const drive = [
 
   .drive-list li {
     margin-bottom: 0.35rem;
+  }
+
+  .promise-line {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    color: var(--color-plum);
+    font-size: 1.05rem;
+  }
+
+  .pillar-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  @media (max-width: 560px) {
+    .pillar-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .pillar h3 {
+    font-size: 1rem;
+    color: var(--color-gold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.3rem;
+  }
+
+  .pillar p {
+    margin: 0;
+    font-size: 0.92rem;
+  }
+
+  .approach-intro {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    color: var(--color-brown);
+  }
+
+  .approach-list {
+    display: grid;
+    gap: 1.25rem;
+    margin: 1.5rem 0;
+  }
+
+  .approach-step {
+    display: grid;
+    grid-template-columns: 3rem 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .approach-num {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--color-gold);
+    font-size: 1.1rem;
+  }
+
+  .approach-step h3 {
+    font-size: 1rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .approach-step p {
+    margin: 0;
+    font-size: 0.92rem;
+    color: var(--color-text-muted);
   }
 </style>
