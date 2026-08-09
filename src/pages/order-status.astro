@@ -7,6 +7,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import { whatsappLink } from "../data/siteSettings";
 import { getSupabaseServerClient } from "../lib/supabaseServer";
 import type { OrderRecord } from "../lib/supabaseServer";
+import { orderStatusMessage } from "../lib/batchProgress";
 
 const refParam = (Astro.url.searchParams.get("ref") ?? "").trim();
 const phoneParam = (Astro.url.searchParams.get("phone") ?? "").trim();
@@ -87,9 +88,11 @@ const whatsappHelp = whatsappLink("Hi Rugofs Foods, I'm trying to check on an or
                 </div>
                 {item.batch && (
                   <p class="batch-note">
-                    {item.batch.status === "in_production" || item.batch.status === "fulfilled"
-                      ? "This item's production batch has been triggered."
-                      : `Batch progress as of your order: ${item.batch.collectedQuantity} of ${item.batch.targetQuantity} units.`}
+                    {orderStatusMessage(
+                      item.batch.collectedQuantity,
+                      item.batch.targetQuantity,
+                      item.batch.status === "in_production" || item.batch.status === "fulfilled",
+                    )}
                   </p>
                 )}
               </li>

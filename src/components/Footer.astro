@@ -15,10 +15,12 @@ import { siteSettings } from "../data/siteSettings";
       <h4>Contact</h4>
       <p>{siteSettings.address}</p>
       <p><a href={`mailto:${siteSettings.email}`}>{siteSettings.email}</a></p>
-      <p><a href={`tel:${siteSettings.phone.replace(/\s/g, "")}`}>{siteSettings.phone}</a></p>
+      {/* This number is WhatsApp-only — it can't receive voice calls, so it's
+          never rendered as a tel: link anywhere on the site. The WhatsApp
+          link below is the only click-to-contact affordance for it. */}
       <p>
         <a href={`https://wa.me/${siteSettings.whatsappNumber}`} target="_blank" rel="noopener noreferrer">
-          Chat on WhatsApp
+          Chat on WhatsApp: {siteSettings.phone}
         </a>
       </p>
     </div>

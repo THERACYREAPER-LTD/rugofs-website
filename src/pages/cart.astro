@@ -108,6 +108,7 @@ const whatsappFallback = whatsappLink(
     CART_EVENT_NAME,
     type CartItem,
   } from "../lib/cart";
+  import { cartMessage } from "../lib/batchProgress";
 
   const emptyEl = document.querySelector<HTMLElement>("[data-cart-empty]");
   const filledEl = document.querySelector<HTMLElement>("[data-cart-filled]");
@@ -204,7 +205,7 @@ const whatsappFallback = whatsappLink(
         const data = await res.json();
         const collected = Number(data.collectedQuantity ?? 0);
         matchingNotes.forEach((el) => {
-          el.textContent = `Batch progress: ${collected.toLocaleString()} of ${target.toLocaleString()} units ordered so far.`;
+          el.textContent = cartMessage(collected, target);
         });
       } catch {
         matchingNotes.forEach((el) => {
@@ -243,6 +244,22 @@ const whatsappFallback = whatsappLink(
       if (errorEl) {
         errorEl.textContent =
           "Payment isn't configured yet — the Paystack public key is missing. Please use WhatsApp to order instead.";
+        errorEl.hidden = false;
+      }
+      return;
+    }
+
+    // Paystack's inline.js is loaded from their CDN via a plain <script> tag
+    // above. If that request is slow, blocked by an ad/tracker blocker, or
+    // Paystack has a momentary hiccup, window.PaystackPop never gets
+    // defined — and without this check, clicking Pay Now would silently do
+    // nothing (an uncaught error on window.PaystackPop.setup, invisible to
+    // the customer). Confirmed live: this is exactly what was happening.
+    // @ts-ignore — PaystackPop is loaded globally by the inline.js script above, when it succeeds
+    if (typeof window.PaystackPop === "undefined") {
+      if (errorEl) {
+        errorEl.textContent =
+          "We couldn't load the secure payment window just now — this is usually temporary. Please refresh the page and try again, or message us on WhatsApp below to complete your order.";
         errorEl.hidden = false;
       }
       return;

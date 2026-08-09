@@ -144,6 +144,7 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
 
 <script>
   import { addToCart } from "../../lib/cart";
+  import { productPageMessage, progressBarPercent } from "../../lib/batchProgress";
 
   document.querySelectorAll<HTMLElement>(".add-to-cart-block").forEach((block) => {
     const qtyValueEl = block.querySelector<HTMLElement>("[data-qty-value]");
@@ -205,9 +206,8 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
       if (!res.ok) throw new Error("batch-status request failed");
       const data = await res.json();
       const collected = Number(data.collectedQuantity ?? 0);
-      const pct = Math.min(100, Math.round((collected / target) * 100));
-      textEl.textContent = `Currently ${collected.toLocaleString()} of ${target.toLocaleString()} units ordered for the next batch.`;
-      if (fillEl) fillEl.style.width = `${pct}%`;
+      textEl.textContent = productPageMessage(collected, target);
+      if (fillEl) fillEl.style.width = `${progressBarPercent(collected, target)}%`;
     } catch {
       // Non-critical — leave the static copy in place rather than showing
       // an error for something that's just a nice-to-have progress bar.

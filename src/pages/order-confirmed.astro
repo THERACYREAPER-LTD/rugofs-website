@@ -12,6 +12,7 @@ import type { OrderItem, BatchInfo } from "../lib/supabaseServer";
 // to avoid a second Sanity query helper, but worth knowing if traffic grows
 // enough that this becomes a real cost/latency concern.
 import { getProductBySlug } from "../data/products";
+import { orderConfirmedMessage } from "../lib/batchProgress";
 
 // SECURITY: PAYSTACK_SECRET_KEY has no PUBLIC_ prefix, so Astro keeps it
 // server-only — it is never included in any client-side JS bundle. This
@@ -235,9 +236,11 @@ const notifyWhatsapp = whatsappLink(
                   </div>
                   {item.batch && (
                     <p class="batch-note">
-                      {item.batch.status === "in_production"
-                        ? `This batch just hit its production threshold (${item.batch.collectedQuantity} of ${item.batch.targetQuantity} units) — production is starting.`
-                        : `Batch progress: ${item.batch.collectedQuantity} of ${item.batch.targetQuantity} units ordered so far. We produce in batches once a product reaches its threshold, so your order is pooled with others' — we'll be in touch with your expected timing.`}
+                      {orderConfirmedMessage(
+                        item.batch.collectedQuantity,
+                        item.batch.targetQuantity,
+                        item.batch.status === "in_production",
+                      )}
                     </p>
                   )}
                 </li>
