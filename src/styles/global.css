@@ -47,7 +47,13 @@ body {
 
 h1, h2, h3, h4, h5 {
   font-family: var(--font-heading);
-  color: var(--color-plum);
+  /* Earth Brown, not Harvest Plum — per the confirmed brand doc, Plum is an
+     accent color, Earth Brown is primary text, and headings are text. This
+     was the real source of the site still reading "purple" after the
+     --color-text change below: every heading on every page was hardcoded
+     to Plum regardless of that variable. Plum is kept for links/buttons,
+     which are legitimately accent elements. */
+  color: var(--color-brown);
   line-height: 1.2;
   margin: 0 0 0.5em;
 }
