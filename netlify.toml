@@ -8,3 +8,26 @@
 # Sanity connection (Phase 1, once the Sanity project exists):
 # SANITY_PROJECT_ID, SANITY_DATASET, SANITY_API_TOKEN
 # Set these in Netlify's Site settings → Environment variables, not here.
+
+# Security headers. The CSP allowlist below is scoped to what this site
+# actually loads: Paystack's Inline checkout script/popup/API, Google
+# Fonts, and Sanity's image CDN. 'unsafe-inline' is kept on script-src and
+# style-src because the JSON-LD structured-data <script> tags and one
+# inline style="width:.." attribute (the batch-progress bar) would
+# otherwise be blocked — a nonce-based approach would remove the need for
+# this but requires per-request generation, which doesn't fit the site's
+# static-prerendered pages cleanly.
+#
+# IMPORTANT: verify the full checkout flow (Pay Now → Paystack popup →
+# completed test payment) still works after this deploys. CSP is the one
+# header here with real potential to silently break Paystack if any of its
+# domains changed or if compliance review changes their integration.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.paystack.co https://checkout.paystack.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.sanity.io; connect-src 'self' https://api.paystack.co; frame-src https://checkout.paystack.com https://js.paystack.co; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"

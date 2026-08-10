@@ -19,9 +19,40 @@ if (!product) {
 }
 
 const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved);
+
+// Product structured data — omits `offers` entirely when no price is set
+// yet (an Offer with no price would be invalid/misleading rather than
+// just absent) rather than showing a placeholder price to search engines.
+const pricedSize = approvedSizes.find((s) => s.priceNGN != null);
+const productJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: product.name,
+  description: product.shortDescription,
+  image: product.images[0] ?? undefined,
+  brand: { "@type": "Brand", name: "Rugofs Foods" },
+  ...(pricedSize
+    ? {
+        offers: {
+          "@type": "Offer",
+          priceCurrency: "NGN",
+          price: pricedSize.priceNGN,
+          availability: pricedSize.inStock
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
+        },
+      }
+    : {}),
+};
 ---
 
-<BaseLayout title={product.name} description={product.shortDescription}>
+<BaseLayout
+  title={product.name}
+  description={product.shortDescription}
+  image={product.images[0]}
+  type="product"
+>
+  <script type="application/ld+json" set:html={JSON.stringify(productJsonLd)} />
   <section class="section">
     <div class="container product-detail">
       <div>
@@ -95,6 +126,10 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
               Add to Cart
             </button>
             <p class="cart-added-note" data-cart-added hidden>Added to your cart.</p>
+            <div class="post-add-actions" data-post-add-actions hidden>
+              <a href="/cart" class="btn btn-primary post-add-btn">Proceed to Checkout</a>
+              <a href="/products" class="btn btn-outline post-add-btn">Continue Shopping</a>
+            </div>
 
             {product.batchTargetQty != null && (
               <div class="batch-progress" data-batch-progress data-slug={product.slug} data-target={product.batchTargetQty}>
@@ -151,6 +186,7 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
     const increaseBtn = block.querySelector<HTMLButtonElement>("[data-qty-increase]");
     const addBtn = block.querySelector<HTMLButtonElement>("[data-add-to-cart]");
     const addedNote = block.querySelector<HTMLElement>("[data-cart-added]");
+    const postAddActions = block.querySelector<HTMLElement>("[data-post-add-actions]");
 
     let qty = 1;
     const renderQty = () => {
@@ -186,6 +222,11 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
           addedNote.hidden = true;
         }, 2500);
       }
+      // Unlike the transient "Added to your cart." note above, these stay
+      // visible once shown — someone who doesn't know the header cart icon
+      // is clickable needs a persistent, obvious next step rather than one
+      // that also disappears after 2.5s.
+      if (postAddActions) postAddActions.hidden = false;
       qty = 1;
       renderQty();
     });
@@ -353,6 +394,19 @@ const approvedSizes = product.packSizes.filter((p: PackSize) => p.nafdacApproved
     font-weight: 600;
     font-size: 0.85rem;
     margin: 0.6rem 0 0;
+  }
+
+  .post-add-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.85rem;
+  }
+
+  .post-add-btn {
+    flex: 1;
+    min-width: 160px;
+    text-align: center;
   }
 
   .batch-progress {

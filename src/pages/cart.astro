@@ -9,7 +9,7 @@ const whatsappFallback = whatsappLink(
 );
 ---
 
-<BaseLayout title="Your Cart" description="Review your Rugofs Foods order.">
+<BaseLayout title="Your Cart" description="Review your Rugofs Foods order." noindex>
   <section class="section">
     <div class="container cart-page" data-paystack-key={PAYSTACK_PUBLIC_KEY}>
       <h1>Your Cart</h1>
@@ -79,6 +79,10 @@ const whatsappFallback = whatsappLink(
 
               <p class="checkout-error" data-checkout-error hidden></p>
             </form>
+
+            <p class="continue-shopping-note">
+              <a href="/products">← Continue Shopping</a>
+            </p>
 
             <p class="whatsapp-fallback-note">
               Having trouble checking out?{" "}
@@ -539,6 +543,18 @@ const whatsappFallback = whatsappLink(
   .checkout-error {
     color: #A33A3A;
     font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .continue-shopping-note {
+    text-align: center;
+    font-size: 0.85rem;
+    margin-top: 0.85rem;
+    margin-bottom: 0;
+  }
+
+  .continue-shopping-note a {
+    color: var(--color-plum);
     font-weight: 600;
   }
 

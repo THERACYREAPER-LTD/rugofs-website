@@ -1,17 +1,57 @@
 ---
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import { siteSettings } from "../data/siteSettings";
 import "../styles/global.css";
 
 interface Props {
   title: string;
   description?: string;
+  // Absolute or site-relative path to a share-preview image (product photo,
+  // etc). Falls back to the cream-background logo when a page doesn't have
+  // a better image of its own — a WhatsApp/Facebook/Instagram link preview
+  // with no image at all looks broken, so this fallback is worth having
+  // even though the logo isn't an ideal 1200x630 share image. Deliberately
+  // the cream-bg version, not the transparent one used in the header/footer
+  // nav — a transparent PNG can render with an unpredictable background
+  // (white, black, checkerboard) depending on the platform's preview card.
+  image?: string;
+  // "product" enables the Product-specific Open Graph type on product
+  // detail pages; every other page is the plain "website" type.
+  type?: "website" | "product";
+  // Transactional/utility pages (cart, checkout confirmation, order
+  // lookup) have no unique content to rank on — set true to keep them out
+  // of search results even if a crawler reaches them by another route.
+  noindex?: boolean;
 }
 
 const {
   title,
   description = "Rugofs Foods — transforming Nigerian harvests into premium, NAFDAC-registered staples.",
+  image = "/images/brand/rugofs-logo-cream.jpg",
+  type = "website",
+  noindex = false,
 } = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const absoluteImageURL = new URL(image, Astro.site);
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Rugofs Foods",
+  url: Astro.site?.toString(),
+  logo: new URL("/images/brand/rugofs-logo.png", Astro.site).toString(),
+  description:
+    "Rugofs Foods transforms Nigerian harvests into premium, NAFDAC-registered staple foods, based in Port Harcourt, Rivers State, Nigeria.",
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: siteSettings.address,
+    addressCountry: "NG",
+  },
+  email: siteSettings.email,
+  sameAs: siteSettings.socialLinks.map((link) => link.url),
+};
 ---
 
 <!doctype html>
@@ -22,6 +62,26 @@ const {
     <link rel="icon" type="image/svg+xml" href="/images/rugofs-logo-placeholder.svg" />
     <title>{title} · Rugofs Foods</title>
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="canonical" href={canonicalURL} />
+
+    <!-- Open Graph / social share previews -->
+    <meta property="og:type" content={type} />
+    <meta property="og:site_name" content="Rugofs Foods" />
+    <meta property="og:title" content={`${title} · Rugofs Foods`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={absoluteImageURL} />
+    <meta property="og:url" content={canonicalURL} />
+
+    <!-- Twitter/X card (also used by some other platforms as a fallback) -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={`${title} · Rugofs Foods`} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={absoluteImageURL} />
+
+    <!-- Organization structured data — helps search engines associate the
+         site with the business name, address, and social profiles. -->
+    <script type="application/ld+json" set:html={JSON.stringify(organizationJsonLd)} />
 
     <!-- Montserrat (headings) / Lato (body) — working default per the
          Website Build Spec; not yet confirmed as final by founder/brand review. -->
