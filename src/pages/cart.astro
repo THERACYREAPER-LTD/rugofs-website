@@ -101,7 +101,6 @@ const whatsappFallback = whatsappLink(
   </section>
 </BaseLayout>
 
-<script src="https://js.paystack.co/v1/inline.js"></script>
 <script>
   import {
     getCart,
@@ -120,6 +119,56 @@ const whatsappFallback = whatsappLink(
   const subtotalEls = document.querySelectorAll<HTMLElement>("[data-cart-subtotal], [data-cart-subtotal-btn]");
   const pageEl = document.querySelector<HTMLElement>(".cart-page");
   const publicKey = pageEl?.dataset.paystackKey ?? "";
+
+  // Paystack's inline.js used to be loaded via a single static <script src>
+  // tag. That gives it exactly one attempt: if that one request is slow,
+  // dropped, or blocked (common on flaky mobile connections — confirmed
+  // live, this was happening even in a clean incognito window with no
+  // extensions), window.PaystackPop never gets defined for the rest of
+  // that page load, no matter how long the customer waits or how many
+  // times they click Pay Now. Loading it dynamically lets us actually
+  // retry instead of getting one shot at it.
+  function loadPaystackScriptOnce(timeoutMs: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      // @ts-ignore — set once the script below succeeds
+      if (typeof window.PaystackPop !== "undefined") {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      // Cache-busting query param on retries — if the first attempt failed
+      // because of a bad cached response (rare, but possible with some
+      // network proxies), a byte-identical retry could hit the same cache
+      // entry and fail the same way.
+      script.src = `https://js.paystack.co/v1/inline.js?_retry=${Date.now()}`;
+      const timer = window.setTimeout(() => resolve(false), timeoutMs);
+      script.onload = () => {
+        window.clearTimeout(timer);
+        resolve(true);
+      };
+      script.onerror = () => {
+        window.clearTimeout(timer);
+        resolve(false);
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  async function ensurePaystackLoaded(
+    { attempts = 2, timeoutMs = 6000 }: { attempts?: number; timeoutMs?: number } = {},
+  ): Promise<boolean> {
+    for (let i = 0; i < attempts; i++) {
+      if (await loadPaystackScriptOnce(timeoutMs)) return true;
+    }
+    return false;
+  }
+
+  // Kick off loading as soon as the cart page is ready — most customers
+  // will have a working payment window well before they finish filling in
+  // the checkout form, so this first attempt is normally invisible. The
+  // submit handler below still checks/retries at click time as a backstop
+  // for whoever's connection was still bad at page-load time.
+  void ensurePaystackLoaded();
 
   function formatNGN(amount: number) {
     return `₦${amount.toLocaleString()}`;
@@ -236,8 +285,10 @@ const whatsappFallback = whatsappLink(
   // Checkout submit
   const form = document.querySelector<HTMLFormElement>("[data-checkout-form]");
   const errorEl = document.querySelector<HTMLElement>("[data-checkout-error]");
+  const payBtn = form?.querySelector<HTMLButtonElement>(".pay-btn") ?? null;
+  const payBtnDefaultHTML = payBtn?.innerHTML ?? "";
 
-  form?.addEventListener("submit", (e) => {
+  form?.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (errorEl) errorEl.hidden = true;
 
@@ -253,20 +304,31 @@ const whatsappFallback = whatsappLink(
       return;
     }
 
-    // Paystack's inline.js is loaded from their CDN via a plain <script> tag
-    // above. If that request is slow, blocked by an ad/tracker blocker, or
-    // Paystack has a momentary hiccup, window.PaystackPop never gets
-    // defined — and without this check, clicking Pay Now would silently do
-    // nothing (an uncaught error on window.PaystackPop.setup, invisible to
-    // the customer). Confirmed live: this is exactly what was happening.
-    // @ts-ignore — PaystackPop is loaded globally by the inline.js script above, when it succeeds
+    // @ts-ignore — set once loadPaystackScriptOnce succeeds
     if (typeof window.PaystackPop === "undefined") {
-      if (errorEl) {
-        errorEl.textContent =
-          "We couldn't load the secure payment window just now — this is usually temporary. Please refresh the page and try again, or message us on WhatsApp below to complete your order.";
-        errorEl.hidden = false;
+      // The eager load kicked off on page load hasn't finished (or failed) —
+      // give it a real, visible second/third attempt right now rather than
+      // immediately giving up. This is what actually fixes the "does
+      // nothing / shows the couldn't-load error" report: previously there
+      // was only ever the one page-load attempt, with no retry at all.
+      if (payBtn) {
+        payBtn.disabled = true;
+        payBtn.textContent = "Loading secure payment window…";
       }
-      return;
+      const loaded = await ensurePaystackLoaded({ attempts: 2, timeoutMs: 5000 });
+      if (payBtn) {
+        payBtn.disabled = false;
+        payBtn.innerHTML = payBtnDefaultHTML;
+      }
+      // @ts-ignore
+      if (!loaded || typeof window.PaystackPop === "undefined") {
+        if (errorEl) {
+          errorEl.textContent =
+            "We couldn't load the secure payment window just now — this is usually temporary. Please refresh the page and try again, or message us on WhatsApp below to complete your order.";
+          errorEl.hidden = false;
+        }
+        return;
+      }
     }
 
     const data = new FormData(form);
