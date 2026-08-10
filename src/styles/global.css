@@ -9,7 +9,14 @@
 :root {
   --color-plum: #5B3A58;       /* Harvest Plum — brand accent */
   --color-plum-light: #7A5477; /* lighter tint for hover states / accents */
-  --color-gold: #C89B3C;       /* Harvest Gold — premium cues */
+  --color-gold: #C89B3C;       /* Harvest Gold — premium cues (backgrounds/icons/borders only — see below for text) */
+  /* Harvest Gold as literal text color fails WCAG AA on light backgrounds
+     (~2.2-2.6:1, needs 4.5:1) and on the Plum footer background (~3.75:1).
+     These two tints keep the gold identity but are tuned per-background to
+     clear 4.5:1 — use --color-gold only for backgrounds/icons/borders,
+     never as small text color. */
+  --color-gold-text: #8A6420;    /* darkened gold — for gold text on light backgrounds (eyebrows, labels) */
+  --color-gold-on-dark: #E0B95C; /* lightened gold — for gold text on Plum/dark backgrounds (footer headers) */
   --color-brown: #5A3E2B;      /* Earth Brown — primary text */
   --color-green: #8BAE3F;      /* Leaf Green — nature cues */
   --color-cream: #F5EFE3;      /* Warm Cream — main background */
@@ -123,11 +130,6 @@ img {
   color: var(--color-cream);
 }
 
-.btn-secondary {
-  background: var(--color-green);
-  color: #1E2A0E;
-}
-
 .btn-whatsapp {
   background: #25D366;
   color: #06210F;
@@ -136,7 +138,7 @@ img {
 .btn-whatsapp-outline {
   background: transparent;
   border-color: #25D366;
-  color: #128C4A;
+  color: #0F7A40; /* darkened from #128C4A — that read ~4.3:1 on white, just under WCAG AA's 4.5:1 */
 }
 
 .btn-whatsapp-outline:hover {
@@ -168,7 +170,7 @@ img {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-gold);
+  color: var(--color-gold-text);
 }
 
 .section-head {

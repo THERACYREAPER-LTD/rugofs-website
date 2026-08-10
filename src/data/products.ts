@@ -2,7 +2,7 @@
 // (log in with the same account this project's Sanity org was created
 // under). This file fetches it ONCE at build time via a top-level await,
 // then exposes the exact same shape every page/component already imports
-// (products, getLiveProducts, getBestseller, getProductBySlug) — so no
+// (products, getLiveProducts, getProductBySlug) — so no
 // page or component needed to change when this swapped from hardcoded
 // data to a live CMS fetch. This is the swap the original comment here
 // predicted: "When Sanity is connected, replace this static object with a
@@ -127,10 +127,6 @@ export function getLiveProducts() {
   return products
     .filter((p) => p.status === "live")
     .sort((a, b) => a.sortOrder - b.sortOrder);
-}
-
-export function getBestseller() {
-  return products.find((p) => p.isBestseller);
 }
 
 export function getProductBySlug(slug: string) {

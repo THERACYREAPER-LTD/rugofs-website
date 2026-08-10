@@ -3,30 +3,16 @@ export const prerender = true;
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ProductCard from "../components/ProductCard.astro";
 import { siteSettings } from "../data/siteSettings";
-import { getLiveProducts, getBestseller } from "../data/products";
+import { getLiveProducts } from "../data/products";
 
 const products = getLiveProducts();
-const bestseller = getBestseller();
-
-const drive = [
-  "Premium Quality",
-  "Innovation",
-  "Integrity",
-  "Self-Reliance",
-  "Excellence",
-  "Availability",
-  "Continuous Improvement",
-  "Customer Confidence",
-  "Agricultural Value Addition",
-];
 ---
 
 <BaseLayout title="Home">
-  <section class="hero">
+  <section class="hero" aria-labelledby="hero-heading">
     <div class="container hero-inner">
       <div class="hero-copy">
-        <p class="eyebrow">NAFDAC-Registered · Port Harcourt, Nigeria</p>
-        <h1>Quality Food, Made Convenient.</h1>
+        <h1 id="hero-heading">Quality Food, Made Convenient.</h1>
         <p class="hero-intro">
           Tasty, nutritious food products made from carefully processed
           agricultural produce — with quality at the heart of what we do.
@@ -54,7 +40,7 @@ const drive = [
     </div>
   </section>
 
-  <section class="trust-strip">
+  <section class="trust-strip" aria-label="Product trust highlights">
     <div class="container trust-strip-inner">
       <div class="trust-badge">
         <span class="trust-badge-icon">
@@ -87,17 +73,16 @@ const drive = [
     </div>
   </section>
 
-  <section class="section brand-promise">
+  <section class="section brand-promise" aria-label="Brand promise">
     <div class="container">
       <p>{siteSettings.brandPromise}</p>
-      <p class="brand-seal">Preserving Goodness, Elevating Taste.</p>
     </div>
   </section>
 
-  <section class="section section--alt story-preview">
+  <section class="section section--alt story-preview" aria-labelledby="story-heading">
     <div class="container narrow">
       <p class="eyebrow">Our Story</p>
-      <h2>From agricultural potential to everyday nourishment.</h2>
+      <h2 id="story-heading">From agricultural potential to everyday nourishment.</h2>
       <p>
         Rugofs Foods grew from a long-standing interest in transforming
         Nigerian agricultural produce into useful, quality food products.
@@ -115,48 +100,11 @@ const drive = [
     </div>
   </section>
 
-  {bestseller && (
-    <section class="section">
-      <div class="container bestseller">
-        <div>
-          <h2>{bestseller.name}</h2>
-          <p>
-            A Port Harcourt kitchen staple, ready to elevate your soup.
-          </p>
-          <a href={`/products/${bestseller.slug}`} class="btn btn-outline">View Product</a>
-        </div>
-        {bestseller.images.length > 0 ? (
-          <img
-            src={bestseller.images[0]}
-            alt={bestseller.name}
-            class="bestseller-photo"
-          />
-        ) : (
-          <div class="placeholder-photo bestseller-photo">Product photo coming soon</div>
-        )}
-      </div>
-    </section>
-  )}
-
-  <section class="section section--alt">
-    <div class="container">
-      <div class="section-head">
-        <p class="eyebrow">What Moves Us</p>
-        <h2>Our Drive</h2>
-      </div>
-      <ul class="drive-list">
-        {drive.map((item) => (
-          <li>{item}</li>
-        ))}
-      </ul>
-    </div>
-  </section>
-
-  <section class="section">
+  <section class="section" aria-labelledby="products-heading">
     <div class="container">
       <div class="section-head">
         <p class="eyebrow">The Range</p>
-        <h2>Featured Products</h2>
+        <h2 id="products-heading">Featured Products</h2>
       </div>
       <div class="grid grid-cards">
         {products.map((product) => (
@@ -185,13 +133,6 @@ const drive = [
     .hero-inner {
       grid-template-columns: 1fr;
     }
-  }
-
-  .hero-sub {
-    font-family: var(--font-heading);
-    font-weight: 600;
-    color: var(--color-brown);
-    font-size: 1.15rem;
   }
 
   .hero-intro {
@@ -311,64 +252,11 @@ const drive = [
     margin: 0;
   }
 
-  .brand-seal {
-    color: var(--color-gold) !important;
-    font-size: 0.95rem !important;
-    font-weight: 600 !important;
-    margin-top: 0.6rem !important;
-    letter-spacing: 0.02em;
-  }
-
-  .bestseller {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2.5rem;
-    align-items: center;
-  }
-
-  @media (max-width: 720px) {
-    .bestseller {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .bestseller-photo {
-    aspect-ratio: 4 / 3;
-    object-fit: contain;
-    width: 100%;
-    padding: 1.5rem;
-    background: linear-gradient(160deg, var(--color-cream) 0%, #FBF8F1 100%);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    filter: drop-shadow(0 12px 18px rgba(43, 35, 32, 0.14));
-  }
-
-  .drive-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem 1.25rem;
-    font-family: var(--font-heading);
-    font-weight: 600;
-    color: var(--color-brown);
-  }
-
-  .drive-list li::before {
-    content: "· ";
-    color: var(--color-gold);
-  }
-
-  .drive-list li:first-child::before {
-    content: "";
-  }
-
   .story-preview .narrow {
     max-width: 640px;
   }
 
-  .story-preview p {
+  .story-preview p:not(.eyebrow) {
     color: var(--color-text-muted);
   }
 
