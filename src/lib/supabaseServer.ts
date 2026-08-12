@@ -54,6 +54,7 @@ export type OrderRecord = {
   customer_email: string;
   delivery_method: "pickup" | "delivery";
   delivery_address: string | null;
+  delivery_zone: string | null;
   delivery_city: string | null;
   delivery_state: string | null;
   delivery_fee_ngn: number | null;

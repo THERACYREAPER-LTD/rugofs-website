@@ -14,8 +14,17 @@ const SETTINGS_QUERY = `*[_type == "siteSettings"][0]{
   email,
   address,
   socialLinks,
-  googleBusinessProfileUrl
+  googleBusinessProfileUrl,
+  "deliveryZones": deliveryZones | order(sortOrder asc)
 }`;
+
+export type DeliveryZone = {
+  name: string;
+  areasDescription: string;
+  feeNGN: number;
+  isContactOnly: boolean;
+  sortOrder: number;
+};
 
 type SiteSettings = {
   tagline: string;
@@ -26,6 +35,7 @@ type SiteSettings = {
   address: string;
   socialLinks: { platform: string; url: string }[];
   googleBusinessProfileUrl: string;
+  deliveryZones: DeliveryZone[];
 };
 
 // Last-known-good values as of the 2026-08-07 Sanity migration — kept as a
@@ -42,6 +52,12 @@ const FALLBACK: SiteSettings = {
   address: "NSPRI Building, Mile 4, Rumueme, Port Harcourt, Rivers State, Nigeria",
   socialLinks: [],
   googleBusinessProfileUrl: "",
+  deliveryZones: [
+    { name: "Zone A — Core PH", areasDescription: "D-Line, GRA, Mile 1–3, Diobu", feeNGN: 2000, isContactOnly: false, sortOrder: 1 },
+    { name: "Zone B — Near PH", areasDescription: "Rumuola, Rumuomasi, Rumuokwuta, Woji", feeNGN: 2500, isContactOnly: false, sortOrder: 2 },
+    { name: "Zone C — Outer PH", areasDescription: "Rukpokwu, Eliozu, Airport axis", feeNGN: 3000, isContactOnly: false, sortOrder: 3 },
+    { name: "Zone D — Extended", areasDescription: "Other areas requiring a special quotation", feeNGN: 0, isContactOnly: true, sortOrder: 4 },
+  ],
 };
 
 let siteSettingsResolved: SiteSettings = FALLBACK;
@@ -58,6 +74,10 @@ try {
       socialLinks: result.socialLinks || FALLBACK.socialLinks,
       googleBusinessProfileUrl:
         result.googleBusinessProfileUrl || FALLBACK.googleBusinessProfileUrl,
+      deliveryZones:
+        Array.isArray(result.deliveryZones) && result.deliveryZones.length > 0
+          ? result.deliveryZones
+          : FALLBACK.deliveryZones,
     };
   }
 } catch (err) {

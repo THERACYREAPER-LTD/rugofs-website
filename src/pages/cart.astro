@@ -2,11 +2,17 @@
 export const prerender = true;
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { PAYSTACK_PUBLIC_KEY } from "../data/payment";
-import { whatsappLink } from "../data/siteSettings";
+import { whatsappLink, siteSettings } from "../data/siteSettings";
 
 const whatsappFallback = whatsappLink(
   "Hi Rugofs Foods, I'd like to order but I'm having trouble with the checkout on your site.",
 );
+
+// Sorted by sortOrder already (see the GROQ query in siteSettings.ts).
+// Contact-only zones (e.g. an "other areas" catch-all) still appear in the
+// dropdown but carry no fixed fee — see the isContactOnly branch in the
+// cart script below.
+const deliveryZones = siteSettings.deliveryZones;
 ---
 
 <BaseLayout title="Your Cart" description="Review your Rugofs Foods order." noindex>
@@ -72,9 +78,27 @@ const whatsappFallback = whatsappLink(
                 </label>
                 <label class="radio-label">
                   <input type="radio" name="deliveryMethod" value="delivery" />
-                  Delivery (fee confirmed after order)
+                  Delivery
                 </label>
               </fieldset>
+
+              <label data-delivery-zone-field hidden>
+                Delivery Location
+                <select name="deliveryZone" data-delivery-zone-select>
+                  <option value="">Select your area…</option>
+                  {deliveryZones.map((zone) => (
+                    <option
+                      value={zone.name}
+                      data-fee={zone.feeNGN}
+                      data-contact-only={zone.isContactOnly ? "true" : "false"}
+                    >
+                      {zone.name} ({zone.areasDescription})
+                      {zone.isContactOnly ? "" : ` — ₦${zone.feeNGN.toLocaleString()}`}
+                    </option>
+                  ))}
+                  <option value="__outside__">Outside Port Harcourt (Nationwide)</option>
+                </select>
+              </label>
 
               <label data-delivery-address-field hidden>
                 Delivery Address
@@ -145,14 +169,18 @@ const whatsappFallback = whatsappLink(
   const deliveryFallbackNote = document.querySelector<HTMLElement>("[data-delivery-fallback-note]");
   const deliveryQuoteStatusEl = document.querySelector<HTMLElement>("[data-delivery-quote-status]");
   const deliveryLocationRow = document.querySelector<HTMLElement>("[data-delivery-location-row]");
+  const deliveryZoneField = document.querySelector<HTMLElement>("[data-delivery-zone-field]");
+  const deliveryZoneSelect = document.querySelector<HTMLSelectElement>("[data-delivery-zone-select]");
   const pageEl = document.querySelector<HTMLElement>(".cart-page");
   const publicKey = pageEl?.dataset.paystackKey ?? "";
 
-  // Live Topship quote for the currently-entered delivery city, if any —
-  // null whenever pickup is selected, the city hasn't been quoted yet, or
-  // Topship isn't configured (delivery-quote.ts returns available:false in
-  // all of those cases, and this just falls back to the pre-Topship
-  // behavior of confirming the fee after checkout instead of blocking it).
+  // The active delivery fee source — either a flat Port Harcourt zone rate
+  // (set instantly from the selected <option>'s data attributes, no
+  // network call) or a live Topship quote for nationwide delivery. Same
+  // shape either way so updateTotals() / the Paystack amount / metadata
+  // below don't need to care which one produced it. Null whenever pickup
+  // is selected, nothing's been chosen yet, a contact-only zone is
+  // selected, or a Topship quote isn't available.
   let currentQuote: { feeNGN: number; mode: string; duration: string; pricingTier: string } | null = null;
   let quoteRequestId = 0;
 
@@ -162,14 +190,51 @@ const whatsappFallback = whatsappLink(
     );
   }
 
-  // Topship is reserved for nationwide delivery — within Port Harcourt is
-  // handled by a local dispatch rider instead (cheaper and same-day for a
-  // short in-city trip, and doesn't need a pre-funded Topship wallet for
-  // something a bike can do directly). Matches "Port Harcourt", "Port-
-  // Harcourt", "PortHarcourt" etc. — anything else is treated as
-  // nationwide and gets a live Topship quote.
-  function isPortHarcourtDelivery(city: string): boolean {
-    return city.trim().toLowerCase().replace(/[^a-z]/g, "") === "portharcourt";
+  // Reads the fee straight off the selected <option>'s data attributes
+  // (populated from siteSettings.deliveryZones — see cart.astro's
+  // frontmatter) rather than a lookup table duplicated in JS, so editing a
+  // zone's price in Sanity is the only place that needs to change.
+  function applySelectedZone() {
+    const selected = deliveryZoneSelect?.selectedOptions[0];
+    const value = selected?.value ?? "";
+
+    if (!value) {
+      currentQuote = null;
+      if (deliveryQuoteStatusEl) deliveryQuoteStatusEl.hidden = true;
+      updateTotals();
+      return;
+    }
+
+    if (value === "__outside__") {
+      // Nationwide — hand off to the Topship quote flow below. currentQuote
+      // stays null until fetchDeliveryQuote() resolves.
+      currentQuote = null;
+      if (deliveryQuoteStatusEl) deliveryQuoteStatusEl.hidden = true;
+      const city = (document.querySelector<HTMLInputElement>('input[name="deliveryCity"]')?.value ?? "").trim();
+      if (city) void fetchDeliveryQuote();
+      updateTotals();
+      return;
+    }
+
+    const isContactOnly = selected?.dataset.contactOnly === "true";
+    if (isContactOnly) {
+      currentQuote = null;
+      if (deliveryQuoteStatusEl) {
+        deliveryQuoteStatusEl.hidden = false;
+        deliveryQuoteStatusEl.textContent =
+          "This area needs a manual delivery quote — we'll confirm your fee with you shortly after checkout.";
+      }
+      updateTotals();
+      return;
+    }
+
+    const feeNGN = Number(selected?.dataset.fee ?? "0");
+    currentQuote = { feeNGN, mode: "Local rider", duration: "Same day", pricingTier: "Zone" };
+    if (deliveryQuoteStatusEl) {
+      deliveryQuoteStatusEl.hidden = false;
+      deliveryQuoteStatusEl.textContent = `Delivery: ${formatNGN(feeNGN)} — local rider, ${value}`;
+    }
+    updateTotals();
   }
 
   function updateTotals() {
@@ -200,19 +265,6 @@ const whatsappFallback = whatsappLink(
 
     if (!city || cart.length === 0) {
       currentQuote = null;
-      updateTotals();
-      return;
-    }
-
-    if (isPortHarcourtDelivery(city)) {
-      // No live quote for local deliveries — our own rider, fee confirmed
-      // directly with the customer, same as it always has been.
-      currentQuote = null;
-      if (deliveryQuoteStatusEl) {
-        deliveryQuoteStatusEl.hidden = false;
-        deliveryQuoteStatusEl.textContent =
-          "Local delivery within Port Harcourt — we'll confirm the fee with our rider shortly after checkout.";
-      }
       updateTotals();
       return;
     }
@@ -364,10 +416,12 @@ const whatsappFallback = whatsappLink(
       .join("");
 
     updateTotals();
-    // Cart contents changed (qty/remove), which can change total weight —
-    // re-quote if a delivery city is already entered so the fee stays
-    // accurate rather than silently going stale.
-    if (currentDeliveryMethod() === "delivery") void fetchDeliveryQuote();
+    // Cart contents changed (qty/remove) — only nationwide (Topship)
+    // quotes depend on cart weight, so only those need re-fetching; a Port
+    // Harcourt zone's flat fee doesn't change with cart contents.
+    if (currentDeliveryMethod() === "delivery" && deliveryZoneSelect?.value === "__outside__") {
+      void fetchDeliveryQuote();
+    }
 
     const batchSummaryNote = document.querySelector<HTMLElement>("[data-batch-summary-note]");
     if (batchSummaryNote) {
@@ -422,7 +476,7 @@ const whatsappFallback = whatsappLink(
   render();
   window.addEventListener(CART_EVENT_NAME, render);
 
-  // Delivery address field toggling
+  // Delivery field toggling
   const deliveryRadios = document.querySelectorAll<HTMLInputElement>('input[name="deliveryMethod"]');
   const addressField = document.querySelector<HTMLElement>("[data-delivery-address-field]");
   const cityInput = document.querySelector<HTMLInputElement>('input[name="deliveryCity"]');
@@ -430,15 +484,28 @@ const whatsappFallback = whatsappLink(
     radio.addEventListener("change", () => {
       const isDelivery = radio.value === "delivery" && radio.checked;
       if (addressField) addressField.hidden = !isDelivery;
-      if (deliveryLocationRow) deliveryLocationRow.hidden = !isDelivery;
-      if (isDelivery && cityInput?.value.trim()) {
-        void fetchDeliveryQuote();
-      } else {
+      if (deliveryZoneField) deliveryZoneField.hidden = !isDelivery;
+
+      if (!isDelivery) {
+        // Reset to a clean slate on switching back to pickup, so toggling
+        // delivery on again later doesn't silently reuse a stale zone/quote.
+        if (deliveryZoneSelect) deliveryZoneSelect.value = "";
+        if (deliveryLocationRow) deliveryLocationRow.hidden = true;
         currentQuote = null;
         if (deliveryQuoteStatusEl) deliveryQuoteStatusEl.hidden = true;
         updateTotals();
+      } else {
+        // Re-apply whatever's currently selected (usually nothing yet,
+        // but matters if they toggle pickup->delivery->pickup->delivery
+        // without touching the zone dropdown in between).
+        applySelectedZone();
       }
     });
+  });
+
+  deliveryZoneSelect?.addEventListener("change", () => {
+    if (deliveryLocationRow) deliveryLocationRow.hidden = deliveryZoneSelect.value !== "__outside__";
+    applySelectedZone();
   });
 
   // Debounced so a quote isn't fired on every keystroke — fires once
@@ -507,12 +574,22 @@ const whatsappFallback = whatsappLink(
     const phone = String(data.get("phone") || "");
     const deliveryMethod = String(data.get("deliveryMethod") || "pickup");
     const deliveryAddress = String(data.get("deliveryAddress") || "");
+    const deliveryZone = String(data.get("deliveryZone") || "");
+    const isOutsidePH = deliveryZone === "__outside__";
     const deliveryCity = String(data.get("deliveryCity") || "");
     const deliveryState = String(data.get("deliveryState") || "");
 
-    if (deliveryMethod === "delivery" && (!deliveryAddress.trim() || !deliveryCity.trim() || !deliveryState.trim())) {
+    if (deliveryMethod === "delivery" && (!deliveryAddress.trim() || !deliveryZone)) {
       if (errorEl) {
-        errorEl.textContent = "Please add your delivery address, city, and state, or switch to in-store pickup.";
+        errorEl.textContent = "Please add your delivery address and select your delivery location, or switch to in-store pickup.";
+        errorEl.hidden = false;
+      }
+      return;
+    }
+
+    if (deliveryMethod === "delivery" && isOutsidePH && (!deliveryCity.trim() || !deliveryState.trim())) {
+      if (errorEl) {
+        errorEl.textContent = "Please add your delivery city and state for nationwide delivery.";
         errorEl.hidden = false;
       }
       return;
@@ -556,14 +633,31 @@ const whatsappFallback = whatsappLink(
         customer_phone: phone,
         delivery_method: deliveryMethod,
         delivery_address: deliveryMethod === "delivery" ? deliveryAddress : null,
-        delivery_city: deliveryMethod === "delivery" ? deliveryCity : null,
-        delivery_state: deliveryMethod === "delivery" ? deliveryState : null,
+        // Only meaningful for a Port Harcourt zone — null for nationwide
+        // (Topship handles those) and for pickup.
+        delivery_zone: deliveryMethod === "delivery" && !isOutsidePH ? deliveryZone : null,
+        delivery_city: deliveryMethod === "delivery" && isOutsidePH ? deliveryCity : null,
+        delivery_state: deliveryMethod === "delivery" && isOutsidePH ? deliveryState : null,
         delivery_fee_ngn: deliveryFeeNGN,
-        // The exact quote used to charge the customer — order-confirmed.astro
-        // books the Topship shipment from THIS, never a fresh re-quote, since
-        // Topship requires shipmentCharge to match what was actually quoted
-        // and a re-quote could legitimately return a different price.
-        topship_quote: deliveryMethod === "delivery" ? currentQuote : null,
+        // The exact quote used to charge the customer, reshaped to match
+        // TopshipRate (order-confirmed.astro's bookAndPayShipment reads
+        // .cost, not .feeNGN) — books the Topship shipment from THIS,
+        // never a fresh re-quote, since Topship requires shipmentCharge to
+        // match what was actually quoted and a re-quote could legitimately
+        // return a different price. Only ever set for nationwide delivery
+        // — a Port Harcourt zone's flat rider fee must never trigger a
+        // Topship booking, even though currentQuote has the same shape for
+        // both (see applySelectedZone/fetchDeliveryQuote above).
+        topship_quote:
+          deliveryMethod === "delivery" && isOutsidePH && currentQuote
+            ? {
+                cost: currentQuote.feeNGN,
+                currency: "NGN",
+                mode: currentQuote.mode,
+                duration: currentQuote.duration,
+                pricingTier: currentQuote.pricingTier,
+              }
+            : null,
         cart: cartMetadata,
         custom_fields: [
           { display_name: "Order Reference", variable_name: "order_ref", value: orderRef },
@@ -754,6 +848,7 @@ const whatsappFallback = whatsappLink(
   }
 
   .checkout-form input,
+  .checkout-form select,
   .checkout-form textarea {
     font-family: var(--font-body);
     font-size: 0.95rem;
@@ -762,6 +857,7 @@ const whatsappFallback = whatsappLink(
     border-radius: var(--radius);
     font-weight: 400;
     color: var(--color-text);
+    background: #fff;
   }
 
   .delivery-location-row {

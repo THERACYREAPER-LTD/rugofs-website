@@ -29,6 +29,7 @@ type CartMetadata = {
   customer_phone?: string;
   delivery_method?: "pickup" | "delivery";
   delivery_address?: string | null;
+  delivery_zone?: string | null;
   delivery_city?: string | null;
   delivery_state?: string | null;
   delivery_fee_ngn?: number;
@@ -239,6 +240,7 @@ if (result.state === "success") {
           customer_email: result.customerEmail ?? "",
           delivery_method: meta.delivery_method ?? "pickup",
           delivery_address: meta.delivery_address ?? null,
+          delivery_zone: meta.delivery_zone ?? null,
           delivery_city: meta.delivery_city ?? null,
           delivery_state: meta.delivery_state ?? null,
           delivery_fee_ngn: deliveryFeeNGN,
@@ -277,6 +279,7 @@ if (result.state === "success") {
 const cartItems: OrderItem[] = confirmedItems;
 const deliveryMethod = result.state === "success" ? (result.metadata.delivery_method ?? "pickup") : "pickup";
 const deliveryAddress = result.state === "success" ? (result.metadata.delivery_address ?? "") : "";
+const deliveryZone = result.state === "success" ? (result.metadata.delivery_zone ?? "") : "";
 const deliveryFeeNGN = result.state === "success" ? (result.metadata.delivery_fee_ngn ?? 0) : 0;
 
 const orderSummaryLines = cartItems
@@ -335,6 +338,7 @@ const notifyWhatsapp = whatsappLink(
             {deliveryMethod === "delivery"
               ? `Delivery to: ${deliveryAddress || "address provided at checkout"}`
               : "In-store pickup"}
+            {deliveryZone && <span class="delivery-fee-note"> · {deliveryZone}</span>}
             {deliveryMethod === "delivery" && deliveryFeeNGN > 0 && (
               <span class="delivery-fee-note"> · Delivery fee: ₦{deliveryFeeNGN.toLocaleString()}</span>
             )}

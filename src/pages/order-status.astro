@@ -110,6 +110,7 @@ const whatsappHelp = whatsappLink("Hi Rugofs Foods, I'm trying to check on an or
             {result.order.delivery_method === "delivery"
               ? `Delivery to: ${result.order.delivery_address}`
               : "In-store pickup"}
+            {result.order.delivery_zone && ` · ${result.order.delivery_zone}`}
           </p>
           {result.order.topship_tracking_id && (
             <p class="status-delivery">
