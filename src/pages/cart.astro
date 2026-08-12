@@ -28,10 +28,18 @@ const whatsappFallback = whatsappLink(
               <span>Subtotal</span>
               <span data-cart-subtotal>₦0</span>
             </div>
-            <p class="summary-note">
+            <div class="summary-row summary-delivery" data-delivery-fee-row hidden>
+              <span>Delivery</span>
+              <span data-delivery-fee-amount>₦0</span>
+            </div>
+            <div class="summary-row summary-total" data-summary-total-row hidden>
+              <span>Total</span>
+              <span data-summary-total>₦0</span>
+            </div>
+            <p class="summary-note" data-delivery-fallback-note>
               Delivery fee (if applicable) is confirmed with you directly after
-              your order, based on your location within Port Harcourt — it's
-              not charged here at checkout.
+              your order, based on your location — it's not charged here at
+              checkout.
             </p>
 
             <p class="summary-note batch-summary-note" data-batch-summary-note hidden>
@@ -70,8 +78,19 @@ const whatsappFallback = whatsappLink(
 
               <label data-delivery-address-field hidden>
                 Delivery Address
-                <textarea name="deliveryAddress" rows="3"></textarea>
+                <textarea name="deliveryAddress" rows="2" placeholder="Street address / landmark"></textarea>
               </label>
+              <div class="delivery-location-row" data-delivery-location-row hidden>
+                <label>
+                  City
+                  <input type="text" name="deliveryCity" autocomplete="address-level2" />
+                </label>
+                <label>
+                  State
+                  <input type="text" name="deliveryState" autocomplete="address-level1" />
+                </label>
+              </div>
+              <p class="delivery-quote-status" data-delivery-quote-status hidden></p>
 
               <button type="submit" class="btn btn-primary pay-btn">
                 Pay Now — <span data-cart-subtotal-btn>₦0</span>
@@ -117,9 +136,109 @@ const whatsappFallback = whatsappLink(
   const emptyEl = document.querySelector<HTMLElement>("[data-cart-empty]");
   const filledEl = document.querySelector<HTMLElement>("[data-cart-filled]");
   const itemsEl = document.querySelector<HTMLElement>("[data-cart-items]");
-  const subtotalEls = document.querySelectorAll<HTMLElement>("[data-cart-subtotal], [data-cart-subtotal-btn]");
+  const subtotalEl = document.querySelector<HTMLElement>("[data-cart-subtotal]");
+  const payBtnAmountEl = document.querySelector<HTMLElement>("[data-cart-subtotal-btn]");
+  const deliveryFeeRow = document.querySelector<HTMLElement>("[data-delivery-fee-row]");
+  const deliveryFeeAmountEl = document.querySelector<HTMLElement>("[data-delivery-fee-amount]");
+  const summaryTotalRow = document.querySelector<HTMLElement>("[data-summary-total-row]");
+  const summaryTotalEl = document.querySelector<HTMLElement>("[data-summary-total]");
+  const deliveryFallbackNote = document.querySelector<HTMLElement>("[data-delivery-fallback-note]");
+  const deliveryQuoteStatusEl = document.querySelector<HTMLElement>("[data-delivery-quote-status]");
+  const deliveryLocationRow = document.querySelector<HTMLElement>("[data-delivery-location-row]");
   const pageEl = document.querySelector<HTMLElement>(".cart-page");
   const publicKey = pageEl?.dataset.paystackKey ?? "";
+
+  // Live Topship quote for the currently-entered delivery city, if any —
+  // null whenever pickup is selected, the city hasn't been quoted yet, or
+  // Topship isn't configured (delivery-quote.ts returns available:false in
+  // all of those cases, and this just falls back to the pre-Topship
+  // behavior of confirming the fee after checkout instead of blocking it).
+  let currentQuote: { feeNGN: number; mode: string; duration: string; pricingTier: string } | null = null;
+  let quoteRequestId = 0;
+
+  function currentDeliveryMethod(): string {
+    return (
+      document.querySelector<HTMLInputElement>('input[name="deliveryMethod"]:checked')?.value ?? "pickup"
+    );
+  }
+
+  function updateTotals() {
+    const subtotal = cartSubtotalNGN(getCart());
+    if (subtotalEl) subtotalEl.textContent = formatNGN(subtotal);
+
+    const isDelivery = currentDeliveryMethod() === "delivery";
+    const feeNGN = isDelivery && currentQuote ? currentQuote.feeNGN : 0;
+    const total = subtotal + feeNGN;
+
+    if (deliveryFeeRow) deliveryFeeRow.hidden = !(isDelivery && currentQuote);
+    if (deliveryFeeAmountEl && currentQuote) deliveryFeeAmountEl.textContent = formatNGN(currentQuote.feeNGN);
+    if (summaryTotalRow) summaryTotalRow.hidden = !(isDelivery && currentQuote);
+    if (summaryTotalEl) summaryTotalEl.textContent = formatNGN(total);
+    if (deliveryFallbackNote) deliveryFallbackNote.hidden = isDelivery && Boolean(currentQuote);
+
+    if (payBtnAmountEl) payBtnAmountEl.textContent = formatNGN(total);
+  }
+
+  async function fetchDeliveryQuote() {
+    const city = (document.querySelector<HTMLInputElement>('input[name="deliveryCity"]')?.value ?? "").trim();
+    const cart = getCart();
+
+    if (!city || cart.length === 0) {
+      currentQuote = null;
+      updateTotals();
+      return;
+    }
+
+    const thisRequestId = ++quoteRequestId;
+    if (deliveryQuoteStatusEl) {
+      deliveryQuoteStatusEl.hidden = false;
+      deliveryQuoteStatusEl.textContent = "Calculating delivery fee…";
+    }
+
+    try {
+      const res = await fetch("/api/delivery-quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          city,
+          items: cart.map((item) => ({ packSize: item.packSize, quantity: item.quantity })),
+        }),
+      });
+      const data = await res.json();
+
+      // A newer request finished, or the customer already moved on
+      // (switched back to pickup) while this was in flight — ignore this
+      // stale result rather than overwriting a newer/cleared state with it.
+      if (thisRequestId !== quoteRequestId) return;
+
+      if (data.available) {
+        currentQuote = {
+          feeNGN: data.feeNGN,
+          mode: data.mode,
+          duration: data.duration,
+          pricingTier: data.pricingTier,
+        };
+        if (deliveryQuoteStatusEl) {
+          deliveryQuoteStatusEl.textContent = `Delivery: ${formatNGN(data.feeNGN)} via ${data.mode} (${data.duration})`;
+        }
+      } else {
+        currentQuote = null;
+        if (deliveryQuoteStatusEl) {
+          deliveryQuoteStatusEl.textContent =
+            "Couldn't calculate delivery automatically — we'll confirm your delivery fee after checkout.";
+        }
+      }
+    } catch {
+      if (thisRequestId !== quoteRequestId) return;
+      currentQuote = null;
+      if (deliveryQuoteStatusEl) {
+        deliveryQuoteStatusEl.textContent =
+          "Couldn't calculate delivery automatically — we'll confirm your delivery fee after checkout.";
+      }
+    }
+
+    updateTotals();
+  }
 
   // Paystack's inline.js used to be loaded via a single static <script src>
   // tag. That gives it exactly one attempt: if that one request is slow,
@@ -216,8 +335,11 @@ const whatsappFallback = whatsappLink(
       )
       .join("");
 
-    const subtotal = cartSubtotalNGN(cart);
-    subtotalEls.forEach((el) => (el.textContent = formatNGN(subtotal)));
+    updateTotals();
+    // Cart contents changed (qty/remove), which can change total weight —
+    // re-quote if a delivery city is already entered so the fee stays
+    // accurate rather than silently going stale.
+    if (currentDeliveryMethod() === "delivery") void fetchDeliveryQuote();
 
     const batchSummaryNote = document.querySelector<HTMLElement>("[data-batch-summary-note]");
     if (batchSummaryNote) {
@@ -275,13 +397,32 @@ const whatsappFallback = whatsappLink(
   // Delivery address field toggling
   const deliveryRadios = document.querySelectorAll<HTMLInputElement>('input[name="deliveryMethod"]');
   const addressField = document.querySelector<HTMLElement>("[data-delivery-address-field]");
+  const cityInput = document.querySelector<HTMLInputElement>('input[name="deliveryCity"]');
   deliveryRadios.forEach((radio) => {
     radio.addEventListener("change", () => {
-      if (addressField) {
-        addressField.hidden = !(radio.value === "delivery" && radio.checked);
+      const isDelivery = radio.value === "delivery" && radio.checked;
+      if (addressField) addressField.hidden = !isDelivery;
+      if (deliveryLocationRow) deliveryLocationRow.hidden = !isDelivery;
+      if (isDelivery && cityInput?.value.trim()) {
+        void fetchDeliveryQuote();
+      } else {
+        currentQuote = null;
+        if (deliveryQuoteStatusEl) deliveryQuoteStatusEl.hidden = true;
+        updateTotals();
       }
     });
   });
+
+  // Debounced so a quote isn't fired on every keystroke — fires once
+  // typing pauses, and again on blur in case the pause detection missed
+  // a fast finish (e.g. tabbing straight to the next field).
+  let quoteDebounceTimer: number | undefined;
+  function scheduleQuote() {
+    window.clearTimeout(quoteDebounceTimer);
+    quoteDebounceTimer = window.setTimeout(() => void fetchDeliveryQuote(), 600);
+  }
+  cityInput?.addEventListener("input", scheduleQuote);
+  cityInput?.addEventListener("blur", () => void fetchDeliveryQuote());
 
   // Checkout submit
   const form = document.querySelector<HTMLFormElement>("[data-checkout-form]");
@@ -338,18 +479,25 @@ const whatsappFallback = whatsappLink(
     const phone = String(data.get("phone") || "");
     const deliveryMethod = String(data.get("deliveryMethod") || "pickup");
     const deliveryAddress = String(data.get("deliveryAddress") || "");
+    const deliveryCity = String(data.get("deliveryCity") || "");
+    const deliveryState = String(data.get("deliveryState") || "");
 
-    if (deliveryMethod === "delivery" && !deliveryAddress.trim()) {
+    if (deliveryMethod === "delivery" && (!deliveryAddress.trim() || !deliveryCity.trim() || !deliveryState.trim())) {
       if (errorEl) {
-        errorEl.textContent = "Please add a delivery address, or switch to in-store pickup.";
+        errorEl.textContent = "Please add your delivery address, city, and state, or switch to in-store pickup.";
         errorEl.hidden = false;
       }
       return;
     }
 
     const subtotal = cartSubtotalNGN(cart);
+    // Only trust currentQuote if it was actually calculated for delivery —
+    // never charge a delivery fee for a pickup order even if a stale quote
+    // object happens to still be sitting in memory from an earlier toggle.
+    const deliveryFeeNGN = deliveryMethod === "delivery" && currentQuote ? currentQuote.feeNGN : 0;
+    const total = subtotal + deliveryFeeNGN;
     trackInitiateCheckout(
-      subtotal,
+      total,
       cart.reduce((sum, item) => sum + item.quantity, 0),
     );
     // Short, human-readable reference — doubles as the Paystack transaction
@@ -371,7 +519,7 @@ const whatsappFallback = whatsappLink(
     const handler = window.PaystackPop.setup({
       key: publicKey,
       email,
-      amount: Math.round(subtotal * 100), // Paystack expects kobo
+      amount: Math.round(total * 100), // Paystack expects kobo — includes delivery fee, folded into one charge
       currency: "NGN",
       ref: orderRef,
       metadata: {
@@ -380,6 +528,14 @@ const whatsappFallback = whatsappLink(
         customer_phone: phone,
         delivery_method: deliveryMethod,
         delivery_address: deliveryMethod === "delivery" ? deliveryAddress : null,
+        delivery_city: deliveryMethod === "delivery" ? deliveryCity : null,
+        delivery_state: deliveryMethod === "delivery" ? deliveryState : null,
+        delivery_fee_ngn: deliveryFeeNGN,
+        // The exact quote used to charge the customer — order-confirmed.astro
+        // books the Topship shipment from THIS, never a fresh re-quote, since
+        // Topship requires shipmentCharge to match what was actually quoted
+        // and a re-quote could legitimately return a different price.
+        topship_quote: deliveryMethod === "delivery" ? currentQuote : null,
         cart: cartMetadata,
         custom_fields: [
           { display_name: "Order Reference", variable_name: "order_ref", value: orderRef },
@@ -578,6 +734,18 @@ const whatsappFallback = whatsappLink(
     border-radius: var(--radius);
     font-weight: 400;
     color: var(--color-text);
+  }
+
+  .delivery-location-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+  }
+
+  .delivery-quote-status {
+    margin: -0.35rem 0 0;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
   }
 
   .delivery-fieldset {

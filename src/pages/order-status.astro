@@ -98,12 +98,30 @@ const whatsappHelp = whatsappLink("Hi Rugofs Foods, I'm trying to check on an or
               </li>
             ))}
           </ul>
-          <p class="status-total">Total: ₦{result.order.subtotal_ngn.toLocaleString()}</p>
+          <p class="status-total">
+            Total: ₦{(result.order.subtotal_ngn + (result.order.delivery_fee_ngn ?? 0)).toLocaleString()}
+            {result.order.delivery_fee_ngn ? (
+              <span class="status-delivery-fee-note">
+                {" "}(incl. ₦{result.order.delivery_fee_ngn.toLocaleString()} delivery)
+              </span>
+            ) : null}
+          </p>
           <p class="status-delivery">
             {result.order.delivery_method === "delivery"
               ? `Delivery to: ${result.order.delivery_address}`
               : "In-store pickup"}
           </p>
+          {result.order.topship_tracking_id && (
+            <p class="status-delivery">
+              Courier tracking: <code>{result.order.topship_tracking_id}</code>
+              {result.order.topship_tracking_url && (
+                <>
+                  {" "}
+                  — <a href={result.order.topship_tracking_url} target="_blank" rel="noopener noreferrer">track shipment</a>
+                </>
+              )}
+            </p>
+          )}
           <p class="status-date">
             Ordered {new Date(result.order.created_at).toLocaleDateString("en-NG", {
               year: "numeric",
@@ -219,6 +237,11 @@ const whatsappHelp = whatsappLink("Hi Rugofs Foods, I'm trying to check on an or
     font-weight: 700;
     font-family: var(--font-heading);
     color: var(--color-plum);
+  }
+
+  .status-delivery-fee-note {
+    font-weight: 400;
+    color: var(--color-text-muted);
   }
 
   .status-delivery,

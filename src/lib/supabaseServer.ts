@@ -54,9 +54,19 @@ export type OrderRecord = {
   customer_email: string;
   delivery_method: "pickup" | "delivery";
   delivery_address: string | null;
+  delivery_city: string | null;
+  delivery_state: string | null;
+  delivery_fee_ngn: number | null;
   items: OrderItem[];
   subtotal_ngn: number;
   status: string;
   paystack_paid_at: string | null;
   created_at: string;
+  // Set once the shipment is booked+paid from the Topship wallet after
+  // payment verification succeeds (see order-confirmed.astro) — null for
+  // pickup orders, and for delivery orders placed before Topship was wired
+  // up or while its API key was still pending.
+  topship_shipment_id: string | null;
+  topship_tracking_id: string | null;
+  topship_tracking_url: string | null;
 };

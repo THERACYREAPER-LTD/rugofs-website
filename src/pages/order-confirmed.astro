@@ -13,6 +13,8 @@ import type { OrderItem, BatchInfo } from "../lib/supabaseServer";
 // enough that this becomes a real cost/latency concern.
 import { getProductBySlug } from "../data/products";
 import { orderConfirmedMessage } from "../lib/batchProgress";
+import { isTopshipConfigured, bookAndPayShipment, TOPSHIP_ITEM_CATEGORY, parsePackSizeToKg } from "../lib/topship";
+import type { TopshipRate } from "../lib/topship";
 
 // SECURITY: PAYSTACK_SECRET_KEY has no PUBLIC_ prefix, so Astro keeps it
 // server-only — it is never included in any client-side JS bundle. This
@@ -27,6 +29,13 @@ type CartMetadata = {
   customer_phone?: string;
   delivery_method?: "pickup" | "delivery";
   delivery_address?: string | null;
+  delivery_city?: string | null;
+  delivery_state?: string | null;
+  delivery_fee_ngn?: number;
+  // The exact rate quoted (and charged) at checkout — see cart.astro. Never
+  // re-quote here: Topship requires shipmentCharge to match what was
+  // actually quoted, and prices could legitimately differ moments later.
+  topship_quote?: TopshipRate | null;
   cart?: OrderItem[];
 };
 
@@ -91,6 +100,9 @@ if (!secretKey) {
 let orderWriteError = false;
 let orderRef: string | null = null;
 let confirmedItems: OrderItem[] = [];
+let topshipTrackingId: string | null = null;
+let topshipTrackingUrl: string | null = null;
+let topshipBookingError = false;
 
 if (result.state === "success") {
   const meta = result.metadata ?? {};
@@ -104,15 +116,19 @@ if (result.state === "success") {
     // increments a running count, so calling it a second time for the same
     // order would silently double-count that order's quantity against its
     // batch. Only run batch assignment the FIRST time this order_ref is
-    // seen; on a refresh, just read back what was already recorded.
+    // seen; on a refresh, just read back what was already recorded. Same
+    // reasoning applies to booking the Topship shipment below — booking it
+    // twice would pay for two shipments from the wallet for one order.
     const { data: existingOrder } = await supabase
       .from("orders")
-      .select("items")
+      .select("items, topship_tracking_id, topship_tracking_url")
       .eq("order_ref", orderRef)
       .maybeSingle();
 
     if (existingOrder) {
       confirmedItems = (existingOrder.items as OrderItem[]) ?? meta.cart;
+      topshipTrackingId = existingOrder.topship_tracking_id ?? null;
+      topshipTrackingUrl = existingOrder.topship_tracking_url ?? null;
     } else {
       // Group cart lines by product (a customer could in principle have
       // more than one pack size of the same product, though today there's
@@ -159,6 +175,57 @@ if (result.state === "success") {
         batch: batchByProductSlug.get(item.productSlug) ?? null,
       }));
 
+      const deliveryFeeNGN = meta.delivery_fee_ngn ?? 0;
+
+      // Book and pay for the actual courier shipment now that payment has
+      // genuinely cleared — never before this point, and never re-quoted
+      // (see topship_quote comment above the CartMetadata type). Wrapped in
+      // try/catch on purpose: the order itself (payment received, recorded)
+      // matters more than the shipment booking succeeding on the first try —
+      // a failure here is logged and surfaced via orderWriteError-style
+      // messaging rather than blocking the customer's confirmation page.
+      if (
+        meta.delivery_method === "delivery" &&
+        meta.topship_quote &&
+        isTopshipConfigured() &&
+        meta.customer_name &&
+        meta.customer_phone &&
+        meta.delivery_address &&
+        meta.delivery_city &&
+        meta.delivery_state
+      ) {
+        try {
+          const booked = await bookAndPayShipment({
+            receiver: {
+              name: meta.customer_name,
+              email: result.customerEmail ?? "",
+              phoneNumber: meta.customer_phone,
+              addressLine1: meta.delivery_address,
+              country: "Nigeria",
+              countryCode: "NG",
+              state: meta.delivery_state,
+              city: meta.delivery_city,
+            },
+            items: confirmedItems.map((item) => ({
+              category: TOPSHIP_ITEM_CATEGORY,
+              description: `${item.productName} (${item.packSize})`,
+              weight: parsePackSizeToKg(item.packSize) ?? 0,
+              quantity: item.quantity,
+              value: item.priceNGN * item.quantity,
+            })),
+            rate: meta.topship_quote,
+          });
+          topshipTrackingId = booked.trackingId || null;
+          topshipTrackingUrl = booked.trackingUrl || null;
+        } catch (err) {
+          console.error(
+            "[topship] Failed to book/pay shipment — order is still valid, delivery will need manual booking:",
+            err instanceof Error ? err.message : err,
+          );
+          topshipBookingError = true;
+        }
+      }
+
       // Upsert on order_ref: belt-and-braces against a race between two
       // near-simultaneous requests for the same reference (e.g. a
       // double-click before redirect). The batch-assignment guard above
@@ -172,10 +239,18 @@ if (result.state === "success") {
           customer_email: result.customerEmail ?? "",
           delivery_method: meta.delivery_method ?? "pickup",
           delivery_address: meta.delivery_address ?? null,
+          delivery_city: meta.delivery_city ?? null,
+          delivery_state: meta.delivery_state ?? null,
+          delivery_fee_ngn: deliveryFeeNGN,
           items: confirmedItems,
-          subtotal_ngn: result.amountNGN,
+          // Product-only subtotal — delivery_fee_ngn carries the delivery
+          // portion separately, even though both were charged together in
+          // one Paystack transaction (result.amountNGN is the full amount).
+          subtotal_ngn: result.amountNGN - deliveryFeeNGN,
           status: "paid",
           paystack_paid_at: result.paidAt || null,
+          topship_tracking_id: topshipTrackingId,
+          topship_tracking_url: topshipTrackingUrl,
         },
         { onConflict: "order_ref" },
       );
@@ -202,6 +277,7 @@ if (result.state === "success") {
 const cartItems: OrderItem[] = confirmedItems;
 const deliveryMethod = result.state === "success" ? (result.metadata.delivery_method ?? "pickup") : "pickup";
 const deliveryAddress = result.state === "success" ? (result.metadata.delivery_address ?? "") : "";
+const deliveryFeeNGN = result.state === "success" ? (result.metadata.delivery_fee_ngn ?? 0) : 0;
 
 const orderSummaryLines = cartItems
   .map((item) => `- ${item.productName} (${item.packSize}) x${item.quantity}`)
@@ -259,11 +335,28 @@ const notifyWhatsapp = whatsappLink(
             {deliveryMethod === "delivery"
               ? `Delivery to: ${deliveryAddress || "address provided at checkout"}`
               : "In-store pickup"}
+            {deliveryMethod === "delivery" && deliveryFeeNGN > 0 && (
+              <span class="delivery-fee-note"> · Delivery fee: ₦{deliveryFeeNGN.toLocaleString()}</span>
+            )}
           </p>
+
+          {topshipTrackingId && (
+            <p class="delivery-line">
+              Courier tracking: <code>{topshipTrackingId}</code>
+              {topshipTrackingUrl && (
+                <>
+                  {" "}
+                  — <a href={topshipTrackingUrl} target="_blank" rel="noopener noreferrer">track shipment</a>
+                </>
+              )}
+            </p>
+          )}
 
           <div class="open-note">
             {cartItems.some((item) => item.batch)
               ? "Your order is confirmed and pooled into its production batch — see the batch progress above. "
+              : deliveryMethod === "delivery" && topshipTrackingId
+              ? "Your delivery is booked and paid for — the courier will pick it up from us shortly. "
               : deliveryMethod === "delivery"
               ? "We'll confirm your delivery fee and timing on WhatsApp shortly. "
               : "We'll confirm pickup details with you on WhatsApp shortly. "}
@@ -281,6 +374,14 @@ const notifyWhatsapp = whatsappLink(
               Your payment was successful, but we had trouble saving your order details on our
               end — please message us on WhatsApp with your reference below just in case, so we
               can confirm it manually.
+            </div>
+          )}
+
+          {topshipBookingError && (
+            <div class="open-note warn-note">
+              Your payment was successful, but we had trouble booking your courier shipment
+              automatically — please message us on WhatsApp with your reference below and we'll
+              get your delivery booked manually.
             </div>
           )}
 
@@ -407,6 +508,11 @@ const notifyWhatsapp = whatsappLink(
     color: var(--color-plum);
     font-family: var(--font-heading);
     font-size: 0.95rem;
+  }
+
+  .delivery-fee-note {
+    font-weight: 400;
+    color: var(--color-text-muted);
   }
 
   .confirm-box .open-note {
