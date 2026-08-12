@@ -1,30 +1,17 @@
-// Central config + event-firing helpers for third-party analytics/ad
-// pixels. Every ID here is PUBLIC_-prefixed on purpose — measurement IDs,
-// pixel IDs, and partner IDs are meant to be embedded in page source (every
-// competitor's site view-source shows theirs); they're identifiers, not
-// secrets, unlike PAYSTACK_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY.
+// Google Tag Manager integration. GTM itself is the only thing wired into
+// the site's code — GA4, Google Ads, Meta Pixel, TikTok, Pinterest,
+// LinkedIn etc. all then get configured as tags *inside* the GTM
+// container (tagmanager.google.com), triggered off the dataLayer events
+// pushed below. That's the point of GTM: adding, removing, or reconfiguring
+// a marketing tag becomes a GTM change, not a code change/redeploy here.
 //
-// Each platform is entirely optional and independent — leaving an env var
-// unset simply skips that platform's script (see Analytics.astro) and its
-// track* calls below become no-ops. Nothing here needs a code change to
-// turn a platform on later; just add the ID in Netlify and redeploy.
+// PUBLIC_-prefixed since a GTM container ID is meant to be visible in page
+// source (every site using GTM has it in view-source) — it's an
+// identifier, not a secret, unlike PAYSTACK_SECRET_KEY or
+// SUPABASE_SERVICE_ROLE_KEY.
 
-export const GA4_MEASUREMENT_ID = import.meta.env.PUBLIC_GA4_MEASUREMENT_ID ?? "";
-export const GOOGLE_ADS_ID = import.meta.env.PUBLIC_GOOGLE_ADS_ID ?? "";
-// Optional — only needed if you want a specific Google Ads conversion
-// action (as opposed to just page-level remarketing). Format from Google
-// Ads: "AW-XXXXXXXXX/AbC-D_efG-h1234567".
-export const GOOGLE_ADS_PURCHASE_LABEL = import.meta.env.PUBLIC_GOOGLE_ADS_PURCHASE_LABEL ?? "";
-export const META_PIXEL_ID = import.meta.env.PUBLIC_META_PIXEL_ID ?? "";
-export const TIKTOK_PIXEL_ID = import.meta.env.PUBLIC_TIKTOK_PIXEL_ID ?? "";
-export const PINTEREST_TAG_ID = import.meta.env.PUBLIC_PINTEREST_TAG_ID ?? "";
-export const LINKEDIN_PARTNER_ID = import.meta.env.PUBLIC_LINKEDIN_PARTNER_ID ?? "";
+export const GTM_CONTAINER_ID = import.meta.env.PUBLIC_GTM_CONTAINER_ID ?? "";
 export const GOOGLE_SITE_VERIFICATION = import.meta.env.PUBLIC_GOOGLE_SITE_VERIFICATION ?? "";
-
-// gtag.js is shared infrastructure for BOTH GA4 and Google Ads (Google Ads
-// conversion tracking uses the same loader/global function, just a
-// different config ID) — load it once if either is configured.
-export const GOOGLE_TAG_ENABLED = Boolean(GA4_MEASUREMENT_ID || GOOGLE_ADS_ID);
 
 export type PurchaseEvent = {
   orderRef: string;
@@ -38,60 +25,36 @@ export type CartEvent = {
   quantity: number;
 };
 
-// Every function below checks for its global before calling it — the same
-// defensive pattern used for window.PaystackPop elsewhere in this project.
-// A pixel failing to load (network hiccup, ad blocker) should never break
-// the actual add-to-cart/checkout/purchase flow it's just observing.
+function pushToDataLayer(payload: Record<string, unknown>) {
+  const w = window as any;
+  // GTM initializes window.dataLayer itself (see Analytics.astro) — this
+  // fallback only matters if a track* call somehow runs before that base
+  // snippet has executed, so an event is never silently dropped.
+  w.dataLayer = w.dataLayer || [];
+  w.dataLayer.push(payload);
+}
+
+// Event names/shapes below follow GA4's standard ecommerce schema
+// (add_to_cart, begin_checkout, purchase) since that's what most GTM
+// templates — GA4, Google Ads, Meta's GTM tag — expect out of the box,
+// minimizing the trigger/variable setup needed inside GTM itself.
 
 export function trackAddToCart(event: CartEvent) {
-  const w = window as any;
-  if (typeof w.gtag === "function") {
-    w.gtag("event", "add_to_cart", {
+  pushToDataLayer({
+    event: "add_to_cart",
+    ecommerce: {
       currency: "NGN",
       value: event.valueNGN,
       items: [{ item_name: event.productName, quantity: event.quantity }],
-    });
-  }
-  if (typeof w.fbq === "function") {
-    w.fbq("track", "AddToCart", {
-      content_name: event.productName,
-      currency: "NGN",
-      value: event.valueNGN,
-    });
-  }
-  if (typeof w.ttq?.track === "function") {
-    w.ttq.track("AddToCart", {
-      content_name: event.productName,
-      currency: "NGN",
-      value: event.valueNGN,
-    });
-  }
-  if (typeof w.pintrk === "function") {
-    w.pintrk("track", "addtocart", { value: event.valueNGN, currency: "NGN" });
-  }
+    },
+  });
 }
 
 export function trackInitiateCheckout(valueNGN: number, itemCount: number) {
-  const w = window as any;
-  if (typeof w.gtag === "function") {
-    w.gtag("event", "begin_checkout", { currency: "NGN", value: valueNGN });
-  }
-  if (typeof w.fbq === "function") {
-    w.fbq("track", "InitiateCheckout", {
-      currency: "NGN",
-      value: valueNGN,
-      num_items: itemCount,
-    });
-  }
-  if (typeof w.ttq?.track === "function") {
-    w.ttq.track("InitiateCheckout", { currency: "NGN", value: valueNGN });
-  }
-  if (typeof w.pintrk === "function") {
-    w.pintrk("track", "checkout", { value: valueNGN, currency: "NGN" });
-  }
-  if (typeof w.lintrk === "function") {
-    w.lintrk("track", { conversion_id: LINKEDIN_PARTNER_ID });
-  }
+  pushToDataLayer({
+    event: "begin_checkout",
+    ecommerce: { currency: "NGN", value: valueNGN, item_count: itemCount },
+  });
 }
 
 // The one that actually matters most for ad spend decisions — fire once,
@@ -99,50 +62,18 @@ export function trackInitiateCheckout(valueNGN: number, itemCount: number) {
 // server-side (never on the client-only "payment popup closed" callback,
 // which would count declined/abandoned attempts as conversions).
 export function trackPurchase(event: PurchaseEvent) {
-  const w = window as any;
-  if (typeof w.gtag === "function") {
-    if (GA4_MEASUREMENT_ID) {
-      w.gtag("event", "purchase", {
-        transaction_id: event.orderRef,
-        currency: "NGN",
-        value: event.valueNGN,
-        items: event.items.map((item) => ({
-          item_name: item.productName,
-          item_variant: item.packSize,
-          quantity: item.quantity,
-          price: item.priceNGN,
-        })),
-      });
-    }
-    if (GOOGLE_ADS_ID && GOOGLE_ADS_PURCHASE_LABEL) {
-      w.gtag("event", "conversion", {
-        send_to: GOOGLE_ADS_PURCHASE_LABEL,
-        transaction_id: event.orderRef,
-        currency: "NGN",
-        value: event.valueNGN,
-      });
-    }
-  }
-  if (typeof w.fbq === "function") {
-    w.fbq("track", "Purchase", {
+  pushToDataLayer({
+    event: "purchase",
+    ecommerce: {
+      transaction_id: event.orderRef,
       currency: "NGN",
       value: event.valueNGN,
-      content_type: "product",
-      contents: event.items.map((item) => ({
-        id: item.productName,
+      items: event.items.map((item) => ({
+        item_name: item.productName,
+        item_variant: item.packSize,
         quantity: item.quantity,
-        item_price: item.priceNGN,
+        price: item.priceNGN,
       })),
-    });
-  }
-  if (typeof w.ttq?.track === "function") {
-    w.ttq.track("CompletePayment", { currency: "NGN", value: event.valueNGN });
-  }
-  if (typeof w.pintrk === "function") {
-    w.pintrk("track", "checkout", {
-      value: event.valueNGN,
-      currency: "NGN",
-      order_id: event.orderRef,
-    });
-  }
+    },
+  });
 }
