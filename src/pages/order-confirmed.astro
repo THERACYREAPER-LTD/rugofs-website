@@ -216,7 +216,14 @@ const notifyWhatsapp = whatsappLink(
 
 <BaseLayout title="Order Confirmation" noindex>
   <section class="section">
-    <div class="container confirm-box">
+    <div
+      class="container confirm-box"
+      data-order-confirmed
+      data-purchase-success={result.state === "success" ? "true" : "false"}
+      data-order-ref={orderRef ?? ""}
+      data-purchase-value={result.state === "success" ? result.amountNGN : ""}
+      data-purchase-items={result.state === "success" ? JSON.stringify(cartItems) : "[]"}
+    >
       {result.state === "success" && (
         <>
           <h1>Payment Confirmed</h1>
@@ -313,6 +320,36 @@ const notifyWhatsapp = whatsappLink(
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  import { trackPurchase } from "../lib/tracking";
+
+  const box = document.querySelector<HTMLElement>("[data-order-confirmed]");
+  const orderRef = box?.dataset.orderRef ?? "";
+
+  // Guard against double-firing: this page can legitimately be reloaded
+  // (the order-confirmed.astro logic itself is idempotent for that reason —
+  // re-verifying with Paystack on refresh is harmless), but a Purchase
+  // event should only ever be reported once per order, or ad platforms'
+  // conversion counts and spend-per-conversion numbers get inflated by
+  // every refresh/back-button visit.
+  const trackedKey = orderRef ? `rugofs_purchase_tracked_${orderRef}` : "";
+
+  if (box?.dataset.purchaseSuccess === "true" && orderRef && !localStorage.getItem(trackedKey)) {
+    try {
+      const items = JSON.parse(box.dataset.purchaseItems || "[]");
+      trackPurchase({
+        orderRef,
+        valueNGN: Number(box.dataset.purchaseValue ?? "0"),
+        items,
+      });
+      localStorage.setItem(trackedKey, "1");
+    } catch {
+      // Malformed items JSON should never break the confirmation page —
+      // worst case a purchase event is missed, not a page crash.
+    }
+  }
+</script>
 
 <style>
   .confirm-box {

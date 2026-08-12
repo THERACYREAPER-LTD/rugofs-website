@@ -179,6 +179,7 @@ const productJsonLd = {
 <script>
   import { addToCart } from "../../lib/cart";
   import { productPageMessage, progressBarPercent } from "../../lib/batchProgress";
+  import { trackAddToCart } from "../../lib/tracking";
 
   document.querySelectorAll<HTMLElement>(".add-to-cart-block").forEach((block) => {
     const qtyValueEl = block.querySelector<HTMLElement>("[data-qty-value]");
@@ -216,6 +217,11 @@ const productJsonLd = {
         },
         qty,
       );
+      trackAddToCart({
+        productName: block.dataset.productName ?? "",
+        valueNGN: Number(block.dataset.priceNgn ?? "0") * qty,
+        quantity: qty,
+      });
       if (addedNote) {
         addedNote.hidden = false;
         window.setTimeout(() => {

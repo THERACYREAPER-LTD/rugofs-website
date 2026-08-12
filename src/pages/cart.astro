@@ -112,6 +112,7 @@ const whatsappFallback = whatsappLink(
     type CartItem,
   } from "../lib/cart";
   import { cartMessage } from "../lib/batchProgress";
+  import { trackInitiateCheckout } from "../lib/tracking";
 
   const emptyEl = document.querySelector<HTMLElement>("[data-cart-empty]");
   const filledEl = document.querySelector<HTMLElement>("[data-cart-filled]");
@@ -347,6 +348,10 @@ const whatsappFallback = whatsappLink(
     }
 
     const subtotal = cartSubtotalNGN(cart);
+    trackInitiateCheckout(
+      subtotal,
+      cart.reduce((sum, item) => sum + item.quantity, 0),
+    );
     // Short, human-readable reference — doubles as the Paystack transaction
     // reference AND the customer-facing order number (one reference, not
     // two competing IDs to keep in sync).

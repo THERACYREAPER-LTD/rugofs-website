@@ -1,6 +1,7 @@
 ---
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import Analytics from "../components/Analytics.astro";
 import { siteSettings } from "../data/siteSettings";
 import "../styles/global.css";
 
@@ -91,6 +92,8 @@ const organizationJsonLd = {
       href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
+
+    <Analytics />
   </head>
   <body>
     <Header />
