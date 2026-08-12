@@ -9,12 +9,11 @@ export default defineConfig({
   // the Paystack secret key without ever shipping it to the browser.
   output: 'server',
   adapter: netlify(),
-  // Real Netlify project domain (confirmed via the Netlify project lookup:
-  // rugofs-foods.netlify.app) — the previous placeholder here was missing
-  // the hyphen entirely (rugofsfoods.netlify.app), which would have made
-  // canonical URLs and the sitemap point at a domain that isn't this site.
-  // Swap this to the real custom domain once one exists.
-  site: 'https://rugofs-foods.netlify.app',
+  // Real custom domain (confirmed live via Netlify's project lookup and a
+  // direct fetch — resolves, serves the site, valid SSL). The previous
+  // rugofs-foods.netlify.app value now only matters as a fallback/branch
+  // preview URL, not the canonical site.
+  site: 'https://rugofsfoods.com.ng',
   integrations: [
     sitemap({
       // Transactional/utility pages have no unique content to rank on and
