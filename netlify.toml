@@ -9,19 +9,33 @@
 # SANITY_PROJECT_ID, SANITY_DATASET, SANITY_API_TOKEN
 # Set these in Netlify's Site settings → Environment variables, not here.
 
-# Security headers. The CSP allowlist below is scoped to what this site
-# actually loads: Paystack's Inline checkout script/popup/API, Google
-# Fonts, and Sanity's image CDN. 'unsafe-inline' is kept on script-src and
-# style-src because the JSON-LD structured-data <script> tags and one
-# inline style="width:.." attribute (the batch-progress bar) would
-# otherwise be blocked — a nonce-based approach would remove the need for
-# this but requires per-request generation, which doesn't fit the site's
+# Security headers. The CSP allowlist below covers Paystack's checkout,
+# Google Fonts, Sanity's image CDN, and every ad/analytics platform wired
+# through Google Tag Manager (see src/components/Analytics.astro and
+# src/lib/tracking.ts) — GTM injects these platforms' own scripts directly
+# into the page, so the browser's CSP applies to them same as anything
+# else, GTM sitting in between doesn't exempt them. 'unsafe-inline' is kept
+# on script-src and style-src because the JSON-LD structured-data <script>
+# tags, GTM's own inline bootstrap snippet, and one inline
+# style="width:.." attribute (the batch-progress bar) would otherwise be
+# blocked — a nonce-based approach would remove the need for this but
+# requires per-request generation, which doesn't fit the site's
 # static-prerendered pages cleanly.
+#
+# MAINTENANCE NOTE: adding a new tag inside GTM's own dashboard (a new
+# platform beyond the ones already listed here) does NOT need a code
+# change on its own, but if that platform's script/beacon domain isn't
+# already in this list, the browser will silently block it — confirmed
+# live: this exact thing happened to the GTM script itself and Paystack's
+# button stylesheet the first time this CSP was added, before GTM/tracking
+# existed in the codebase yet. If a newly-added GTM tag doesn't seem to be
+# firing, check the browser console for a CSP violation before assuming
+# it's a GTM configuration problem.
 #
 # IMPORTANT: verify the full checkout flow (Pay Now → Paystack popup →
 # completed test payment) still works after this deploys. CSP is the one
-# header here with real potential to silently break Paystack if any of its
-# domains changed or if compliance review changes their integration.
+# header here with real potential to silently break Paystack or tracking
+# if any of these domains change.
 [[headers]]
   for = "/*"
   [headers.values]
@@ -30,4 +44,4 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.paystack.co https://checkout.paystack.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.sanity.io; connect-src 'self' https://api.paystack.co; frame-src https://checkout.paystack.com https://js.paystack.co; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.paystack.co https://checkout.paystack.com https://www.googletagmanager.com https://www.google-analytics.com https://googleads.g.doubleclick.net https://connect.facebook.net https://analytics.tiktok.com https://s.pinimg.com https://snap.licdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://paystack.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.sanity.io https://www.facebook.com https://ct.pinterest.com https://px.ads.linkedin.com https://www.google-analytics.com https://googleads.g.doubleclick.net; connect-src 'self' https://api.paystack.co https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com https://googleads.g.doubleclick.net https://www.facebook.com https://analytics.tiktok.com https://ct.pinterest.com https://px.ads.linkedin.com; frame-src https://checkout.paystack.com https://js.paystack.co https://td.doubleclick.net; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
