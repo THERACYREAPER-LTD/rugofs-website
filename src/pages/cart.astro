@@ -162,6 +162,16 @@ const whatsappFallback = whatsappLink(
     );
   }
 
+  // Topship is reserved for nationwide delivery — within Port Harcourt is
+  // handled by a local dispatch rider instead (cheaper and same-day for a
+  // short in-city trip, and doesn't need a pre-funded Topship wallet for
+  // something a bike can do directly). Matches "Port Harcourt", "Port-
+  // Harcourt", "PortHarcourt" etc. — anything else is treated as
+  // nationwide and gets a live Topship quote.
+  function isPortHarcourtDelivery(city: string): boolean {
+    return city.trim().toLowerCase().replace(/[^a-z]/g, "") === "portharcourt";
+  }
+
   function updateTotals() {
     const subtotal = cartSubtotalNGN(getCart());
     if (subtotalEl) subtotalEl.textContent = formatNGN(subtotal);
@@ -174,7 +184,12 @@ const whatsappFallback = whatsappLink(
     if (deliveryFeeAmountEl && currentQuote) deliveryFeeAmountEl.textContent = formatNGN(currentQuote.feeNGN);
     if (summaryTotalRow) summaryTotalRow.hidden = !(isDelivery && currentQuote);
     if (summaryTotalEl) summaryTotalEl.textContent = formatNGN(total);
-    if (deliveryFallbackNote) deliveryFallbackNote.hidden = isDelivery && Boolean(currentQuote);
+    // The specific status line (real quote, "local rider" note, or
+    // "couldn't calculate") already says what the generic fallback note
+    // says, once it has anything to show — avoid the two saying the same
+    // thing at once right below each other.
+    const quoteStatusShown = isDelivery && Boolean(deliveryQuoteStatusEl) && !deliveryQuoteStatusEl!.hidden;
+    if (deliveryFallbackNote) deliveryFallbackNote.hidden = quoteStatusShown;
 
     if (payBtnAmountEl) payBtnAmountEl.textContent = formatNGN(total);
   }
@@ -185,6 +200,19 @@ const whatsappFallback = whatsappLink(
 
     if (!city || cart.length === 0) {
       currentQuote = null;
+      updateTotals();
+      return;
+    }
+
+    if (isPortHarcourtDelivery(city)) {
+      // No live quote for local deliveries — our own rider, fee confirmed
+      // directly with the customer, same as it always has been.
+      currentQuote = null;
+      if (deliveryQuoteStatusEl) {
+        deliveryQuoteStatusEl.hidden = false;
+        deliveryQuoteStatusEl.textContent =
+          "Local delivery within Port Harcourt — we'll confirm the fee with our rider shortly after checkout.";
+      }
       updateTotals();
       return;
     }
