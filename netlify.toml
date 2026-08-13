@@ -26,11 +26,25 @@
 # platform beyond the ones already listed here) does NOT need a code
 # change on its own, but if that platform's script/beacon domain isn't
 # already in this list, the browser will silently block it — confirmed
-# live: this exact thing happened to the GTM script itself and Paystack's
-# button stylesheet the first time this CSP was added, before GTM/tracking
-# existed in the codebase yet. If a newly-added GTM tag doesn't seem to be
-# firing, check the browser console for a CSP violation before assuming
-# it's a GTM configuration problem.
+# live TWICE now: first the GTM script itself and Paystack's button
+# stylesheet (fixed once), then GA4/Google Ads' actual measurement traffic
+# (stats.g.doubleclick.net, www.google.com, and country-TLD variants like
+# google.com.ng for the remarketing-audience pixel specifically) once GTM
+# was actually live and firing real requests — Google's measurement
+# infrastructure uses more domains than its own docs suggest, and some
+# needed img-src, not just connect-src. Wildcarded the Google/Meta/etc.
+# subdomains below (*.google.com, *.doubleclick.net, etc.) specifically so
+# this doesn't need a third fix the next time Google adds an endpoint.
+#
+# KNOWN GAP: CSP wildcards only match subdomains, not different top-level
+# domains — *.google.com does NOT cover google.com.ng, google.co.uk, or
+# other country-code variants Google Ads' remarketing-audience pixel uses
+# depending on visitor location. Core measurement (page views, conversions)
+# goes through google-analytics.com/doubleclick.net and works regardless;
+# only that one supplementary remarketing-audience signal may still be
+# blocked for visitors on a non-.com Google domain. Enumerating every
+# country TLD isn't practical — flagging as an accepted, minor gap rather
+# than silently pretending it's fully solved.
 #
 # IMPORTANT: verify the full checkout flow (Pay Now → Paystack popup →
 # completed test payment) still works after this deploys. CSP is the one
@@ -44,4 +58,4 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.paystack.co https://checkout.paystack.com https://www.googletagmanager.com https://www.google-analytics.com https://googleads.g.doubleclick.net https://connect.facebook.net https://analytics.tiktok.com https://s.pinimg.com https://snap.licdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://paystack.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.sanity.io https://www.facebook.com https://ct.pinterest.com https://px.ads.linkedin.com https://www.google-analytics.com https://googleads.g.doubleclick.net; connect-src 'self' https://api.paystack.co https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com https://googleads.g.doubleclick.net https://www.facebook.com https://analytics.tiktok.com https://ct.pinterest.com https://px.ads.linkedin.com; frame-src https://checkout.paystack.com https://js.paystack.co https://td.doubleclick.net; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.paystack.co https://checkout.paystack.com https://*.googletagmanager.com https://*.google-analytics.com https://*.doubleclick.net https://*.googleadservices.com https://*.googlesyndication.com https://connect.facebook.net https://analytics.tiktok.com https://s.pinimg.com https://snap.licdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://paystack.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.sanity.io https://www.facebook.com https://ct.pinterest.com https://px.ads.linkedin.com https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net https://*.google.com; connect-src 'self' https://api.paystack.co https://*.googletagmanager.com https://*.google-analytics.com https://*.doubleclick.net https://*.google.com https://www.facebook.com https://analytics.tiktok.com https://ct.pinterest.com https://px.ads.linkedin.com; frame-src https://checkout.paystack.com https://js.paystack.co https://*.doubleclick.net; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"

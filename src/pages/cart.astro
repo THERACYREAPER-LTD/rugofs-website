@@ -866,6 +866,22 @@ const deliveryZones = siteSettings.deliveryZones;
     gap: 0.85rem;
   }
 
+  /* Grid items default to min-width:auto, which for a text input means the
+     track won't shrink below the input's natural content width — on a
+     375px phone this pushed the row to ~525px and forced the whole page
+     to scroll horizontally. min-width:0 lets the columns actually shrink;
+     stacking to one column below 480px keeps City/State comfortably
+     tappable rather than just technically fitting. */
+  .delivery-location-row > label {
+    min-width: 0;
+  }
+
+  @media (max-width: 480px) {
+    .delivery-location-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
   .delivery-quote-status {
     margin: -0.35rem 0 0;
     font-size: 0.8rem;

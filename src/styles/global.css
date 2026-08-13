@@ -38,6 +38,20 @@
   box-sizing: border-box;
 }
 
+/* The `hidden` attribute is only a plain (non-!important) UA-stylesheet
+   rule, so any author CSS that sets `display` on the same element — even
+   something as ordinary as `.summary-row { display: flex }` — silently
+   wins and the element stays visible despite `hidden`. Confirmed live:
+   this was happening to several form fields on the cart page (delivery
+   address/zone/city-state, and the delivery-fee/total summary rows all
+   stayed visible under In-store Pickup, and the delivery fields showed
+   before a delivery method was even picked) — the `.hidden = true` JS was
+   correct, the CSS just didn't respect it. This one rule fixes every
+   current use of `[hidden]` sitewide at once, and any future one. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
