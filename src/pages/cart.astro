@@ -874,18 +874,6 @@ const deliveryZones = siteSettings.deliveryZones;
   .checkout-form input,
   .checkout-form select,
   .checkout-form textarea {
-    /* Explicit width, not left to flex-stretch from `.checkout-form label`
-       (display:flex; flex-direction:column). <input>/<textarea> happen to
-       stretch fine without it, but native <select> is inconsistent about
-       honoring flex-stretch and instead sizes itself to its widest
-       <option> — the delivery zone dropdown's option text ("Zone C —
-       Outer PH (Rukpokwu, Eliozu, Airport axis) — ₦3,000") rendered at
-       ~524px regardless of its container, pushing the whole page into
-       horizontal scroll on a 375px phone. Same category of bug as the
-       .delivery-location-row min-width:0 fix below — content-driven width
-       overriding the container on mobile — just a different element.
-       Confirmed live 2026-09-05. */
-    width: 100%;
     font-family: var(--font-body);
     font-size: 0.95rem;
     padding: 0.65em 0.8em;
@@ -894,6 +882,26 @@ const deliveryZones = siteSettings.deliveryZones;
     font-weight: 400;
     color: var(--color-text);
     background: #fff;
+  }
+
+  /* Split out from the rule above, deliberately excluding radio/checkbox.
+     width:100% exists because the delivery zone <select> doesn't honor
+     flex-stretch from `.checkout-form label` (display:flex; flex-
+     direction:column) and instead sizes itself to its widest <option> —
+     the zone dropdown's option text ("Zone C — Outer PH (Rukpokwu,
+     Eliozu, Airport axis) — ₦3,000") rendered at ~524px regardless of its
+     container, pushing the whole page into horizontal scroll on a 375px
+     phone (confirmed live 2026-09-05). But that same selector also
+     matched the pickup/delivery radio inputs, stretching each one to fill
+     the row inside .radio-label's flex layout — on iOS Safari this
+     visually separated the small circle from its label text, since Safari
+     renders native radio controls in their real (stretched) box rather
+     than a fixed small square (reported on iPhone 2026-09-06). Radios and
+     checkboxes must stay their natural intrinsic size. */
+  .checkout-form input:not([type="radio"]):not([type="checkbox"]),
+  .checkout-form select,
+  .checkout-form textarea {
+    width: 100%;
   }
 
   .delivery-location-row {
