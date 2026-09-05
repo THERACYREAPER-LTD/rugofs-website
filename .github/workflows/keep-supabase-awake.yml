@@ -1,0 +1,36 @@
+# Supabase's free tier auto-pauses a project after a period of API
+# inactivity (this is what happened 2026-09-05 -- the project sat paused
+# for weeks during development, which meant real order writes and
+# /api/batch-status would have started failing the moment a real customer
+# used the live checkout). Running twice a week keeps the gap between
+# pings well under whatever inactivity window triggers the pause, without
+# needing to pay for Pro just to avoid it.
+#
+# Uses the "publishable" key (sb_publishable_...), which is explicitly
+# designed to be public -- same trust level as PUBLIC_SUPABASE_URL, which
+# is already a public env var. This workflow never touches the service
+# role key. The query targets `orders`, which has RLS enabled with no
+# policies, so it always returns an empty array regardless of key -- the
+# point is just to make a real authenticated request against the project,
+# not to read anything.
+name: Keep Supabase project awake
+
+on:
+  schedule:
+    - cron: "0 6 * * 1,4" # Monday and Thursday, 06:00 UTC
+  workflow_dispatch: {} # manual "Run workflow" button for an on-demand ping
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://dajzidimozwaujnzebqq.supabase.co/rest/v1/orders?select=id&limit=1" \
+            -H "apikey: sb_publishable_YGpKCJfzPWxa0jTbHcT5Cw_qDu2_hZu")
+          echo "Supabase responded: $status"
+          if [ "$status" -ge 500 ]; then
+            echo "::error::Supabase ping got a server error ($status) -- project may be down, not just paused."
+            exit 1
+          fi
