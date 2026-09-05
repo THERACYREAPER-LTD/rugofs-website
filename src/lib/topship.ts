@@ -4,11 +4,15 @@
 // key. Same "server-only secret" pattern as PAYSTACK_SECRET_KEY and
 // SUPABASE_SERVICE_ROLE_KEY.
 //
-// Built directly from Topship's "Open Server Docs" PDF (Aug 2026) — not
-// tested against a live account yet, since PROD/STAGING keys are still
-// pending from tech@topship.africa as of this writing. Once keys exist,
-// exercise get-shipment-rate and save-shipment against STAGING first (set
-// TOPSHIP_BASE_URL to the staging URL below) before pointing at LIVE.
+// Originally built from Topship's "Open Server Docs" PDF (Aug 2026) before
+// any API key existed to test against. That transcription had real bugs —
+// get-shipment-rate's method/payload shape and the item category enum were
+// both wrong, only caught once a real STAGING key arrived and every call
+// 404'd. Re-verified 2026-09-05 against Topship's actual hosted docs
+// (https://topship-staging.africa/shipping/docs#/), which is the
+// authoritative reference now, not the original PDF. Still only exercised
+// against STAGING (set TOPSHIP_BASE_URL to the live URL below only once
+// save-shipment has been proven end-to-end on staging).
 //
 // Docs note a few easy-to-miss gotchas, preserved here rather than in a
 // comment far from where they matter:
@@ -49,13 +53,12 @@ export function parsePackSizeToKg(packSize: string): number | null {
   return match[2].toLowerCase() === "kg" ? value : value / 1000;
 }
 
-// UNVERIFIED — the docs PDF's category field is an enum ("Appliance ||
-// Bea...") that gets cut off in every example without ever showing the
-// full list. "Food" is a reasonable guess for flour/grocery items, but
-// confirm the actual accepted value (Topship's dashboard shipment-creation
-// form should show the real dropdown) once API access exists, and correct
-// this via the env var rather than needing a code change if it's wrong.
-export const TOPSHIP_ITEM_CATEGORY = import.meta.env.TOPSHIP_ITEM_CATEGORY || "Food";
+// Confirmed 2026-09-05 against Topship's real hosted docs
+// (https://topship-staging.africa/shipping/docs#/) — neither "Food" nor
+// "Agro-processing" (both earlier guesses) are in the real enum. Closest
+// fit for packaged flour products is "FoodstuffAndFoodProducts"; "FoodItems"
+// is the other plausible option if that one ever gets rejected.
+export const TOPSHIP_ITEM_CATEGORY = import.meta.env.TOPSHIP_ITEM_CATEGORY || "FoodstuffAndFoodProducts";
 
 // Rugofs' own pickup location — every quote/shipment's senderDetail. Kept
 // here rather than re-reading siteSettings per call, since this is Topship-
@@ -96,27 +99,45 @@ async function topshipFetch(path: string, options: { method?: string; body?: unk
 
 export type TopshipRate = {
   mode: string;
-  cost: number; // Naira, per get-shipment-rate — NOT kobo (kobo only applies to charges we submit, e.g. /save-shipment)
+  cost: number; // Always normalized to Naira by getShipmentRate below, regardless of what the API actually returned it in.
   duration: string;
   currency: string;
   pricingTier: "Budget" | "Express" | string;
 };
 
+// Confirmed 2026-09-05 against Topship's real hosted docs
+// (https://topship-staging.africa/shipping/docs#/) — this endpoint is GET
+// with the payload as a JSON-stringified query parameter, not a POST with
+// a JSON body as originally guessed from the PDF. The PDF's guessed POST
+// shape was the actual cause of every prior "quote-failed" response —
+// confirmed via direct curl testing, which reproduced NestJS's literal
+// "Cannot POST /api/get-shipment-rate" for the same reason.
 export async function getShipmentRate(params: {
   destinationCity: string;
   destinationCountryCode: string;
   totalWeightKg: number;
 }): Promise<TopshipRate[]> {
-  const json = await topshipFetch("/get-shipment-rate", {
-    body: {
-      shipmentDetail: {
-        senderDetails: { cityName: RUGOFS_SENDER.city, countryCode: RUGOFS_SENDER.countryCode },
-        receiverDetails: { cityName: params.destinationCity, countryCode: params.destinationCountryCode },
-        totalWeight: params.totalWeightKg,
-      },
-    },
+  const query = new URLSearchParams({
+    shipmentDetail: JSON.stringify({
+      senderDetails: { cityName: RUGOFS_SENDER.city, countryCode: RUGOFS_SENDER.countryCode },
+      receiverDetails: { cityName: params.destinationCity, countryCode: params.destinationCountryCode },
+      totalWeight: params.totalWeightKg,
+    }),
   });
-  return Array.isArray(json) ? json : [];
+  const json = await topshipFetch(`/get-shipment-rate?${query.toString()}`);
+  const rates = Array.isArray(json) ? json : [];
+  // Confirmed live 2026-09-05: real responses come back with cost in KOBO
+  // (currency: "KOBO" on the actual object), not Naira as the docs' vague
+  // `"currency": "string"` schema and the original code both assumed. A
+  // Lagos->Abuja test quote returned {"cost":1528002,"currency":"KOBO"} —
+  // i.e. ₦15,280.02, not ₦1,528,002. Normalizing here, at the one place
+  // the value enters the system, means every downstream consumer
+  // (delivery-quote.ts's feeNGN, bookAndPayShipment's *100 kobo
+  // conversion, cart display) can keep treating TopshipRate.cost as Naira
+  // with no other code changes.
+  return rates.map((rate: TopshipRate) =>
+    rate.currency === "KOBO" ? { ...rate, cost: rate.cost / 100, currency: "NGN" } : rate,
+  );
 }
 
 // Budget over Express by default — no tier-selection UI exists in checkout
@@ -173,7 +194,12 @@ export async function bookAndPayShipment(params: {
           insuranceType: "None",
           insuranceCharge: 0,
           discount: 0,
-          shipmentRoute: "Export",
+          // Rugofs ships Port Harcourt -> other Nigerian cities only, never
+          // out of the country — "Domestic" per Topship's real docs enum
+          // (Import || Export || Domestic). Was wrongly hardcoded to
+          // "Export" until corrected 2026-09-05; never actually exercised
+          // against a live account before now, so this was untested.
+          shipmentRoute: "Domestic",
           shipmentCharge: shipmentChargeKobo,
           pickupCharge: 0,
           valueAddedTaxCharge: vatKobo,
