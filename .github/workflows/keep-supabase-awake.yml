@@ -2,9 +2,19 @@
 # inactivity (this is what happened 2026-09-05 -- the project sat paused
 # for weeks during development, which meant real order writes and
 # /api/batch-status would have started failing the moment a real customer
-# used the live checkout). Running twice a week keeps the gap between
-# pings well under whatever inactivity window triggers the pause, without
-# needing to pay for Pro just to avoid it.
+# used the live checkout).
+#
+# Originally ran Mon/Thu, assuming a ~7-day inactivity window. That was
+# wrong: run #1 (Sep 7) and #2 (Sep 10) both succeeded, but by run #3
+# (Sep 14 -- only 4 days after a *successful* ping) the project had
+# already paused again and the ping itself started failing. Whatever
+# Supabase's real threshold is, twice-a-week wasn't tight enough. Now
+# daily. IMPORTANT: a failed run means the project was ALREADY paused by
+# the time it ran -- this ping can only prevent a pause, not undo one
+# (that needs the Management API's restore endpoint, a privileged call
+# this workflow deliberately doesn't have credentials for). A failure
+# notification here means someone needs to manually restore the project,
+# not that the workflow will fix it on its own next run.
 #
 # Uses the "publishable" key (sb_publishable_...), which is explicitly
 # designed to be public -- same trust level as PUBLIC_SUPABASE_URL, which
@@ -17,7 +27,7 @@ name: Keep Supabase project awake
 
 on:
   schedule:
-    - cron: "0 6 * * 1,4" # Monday and Thursday, 06:00 UTC
+    - cron: "0 6 * * *" # daily, 06:00 UTC
   workflow_dispatch: {} # manual "Run workflow" button for an on-demand ping
 
 jobs:
