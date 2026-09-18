@@ -15,6 +15,7 @@ import { getProductBySlug } from "../data/products";
 import { orderConfirmedMessage } from "../lib/batchProgress";
 import { isTopshipConfigured, bookAndPayShipment, TOPSHIP_ITEM_CATEGORY, parsePackSizeToKg } from "../lib/topship";
 import type { TopshipRate } from "../lib/topship";
+import { logOrderToSheet } from "../lib/sheetsLog";
 
 // SECURITY: PAYSTACK_SECRET_KEY has no PUBLIC_ prefix, so Astro keeps it
 // server-only — it is never included in any client-side JS bundle. This
@@ -232,30 +233,29 @@ if (result.state === "success") {
       // double-click before redirect). The batch-assignment guard above
       // (checked via a SELECT, not a DB-level lock) is the primary
       // protection; this keeps the order row itself idempotent regardless.
-      const { error } = await supabase.from("orders").upsert(
-        {
-          order_ref: orderRef,
-          customer_name: meta.customer_name ?? "",
-          customer_phone: meta.customer_phone ?? "",
-          customer_email: result.customerEmail ?? "",
-          delivery_method: meta.delivery_method ?? "pickup",
-          delivery_address: meta.delivery_address ?? null,
-          delivery_zone: meta.delivery_zone ?? null,
-          delivery_city: meta.delivery_city ?? null,
-          delivery_state: meta.delivery_state ?? null,
-          delivery_fee_ngn: deliveryFeeNGN,
-          items: confirmedItems,
-          // Product-only subtotal — delivery_fee_ngn carries the delivery
-          // portion separately, even though both were charged together in
-          // one Paystack transaction (result.amountNGN is the full amount).
-          subtotal_ngn: result.amountNGN - deliveryFeeNGN,
-          status: "paid",
-          paystack_paid_at: result.paidAt || null,
-          topship_tracking_id: topshipTrackingId,
-          topship_tracking_url: topshipTrackingUrl,
-        },
-        { onConflict: "order_ref" },
-      );
+      const orderRecord = {
+        order_ref: orderRef,
+        customer_name: meta.customer_name ?? "",
+        customer_phone: meta.customer_phone ?? "",
+        customer_email: result.customerEmail ?? "",
+        delivery_method: meta.delivery_method ?? "pickup",
+        delivery_address: meta.delivery_address ?? null,
+        delivery_zone: meta.delivery_zone ?? null,
+        delivery_city: meta.delivery_city ?? null,
+        delivery_state: meta.delivery_state ?? null,
+        delivery_fee_ngn: deliveryFeeNGN,
+        // Product-only subtotal — delivery_fee_ngn carries the delivery
+        // portion separately, even though both were charged together in
+        // one Paystack transaction (result.amountNGN is the full amount).
+        subtotal_ngn: result.amountNGN - deliveryFeeNGN,
+        paystack_paid_at: result.paidAt || null,
+        topship_tracking_id: topshipTrackingId,
+        topship_tracking_url: topshipTrackingUrl,
+      };
+
+      const { error } = await supabase
+        .from("orders")
+        .upsert({ ...orderRecord, items: confirmedItems, status: "paid" }, { onConflict: "order_ref" });
       if (error) {
         // Payment already succeeded — don't block the customer's confirmation
         // over a database write failing. Flag it so the page can still tell
@@ -264,6 +264,15 @@ if (result.state === "success") {
         console.error("[supabase] Failed to write order record:", error.message);
         orderWriteError = true;
       }
+
+      // Independent of whether the Supabase write above succeeded — that's
+      // the whole point (see sheetsLog.ts). No-ops until
+      // GOOGLE_SHEETS_WEBHOOK_URL / _SECRET are configured.
+      await logOrderToSheet({
+        ...orderRecord,
+        total_ngn: result.amountNGN,
+        items_summary: confirmedItems.map((item) => `${item.productName} (${item.packSize}) x${item.quantity}`).join("; "),
+      });
     }
   } else if (!supabase) {
     console.error(
